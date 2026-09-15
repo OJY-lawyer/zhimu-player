@@ -8,6 +8,10 @@ A Windows desktop workspace for video reading with AI: watch long recordings, br
 
 One application includes both **ChatGPT web** (the default) and **DeepSeek API**. Optional speech recognition uses **Tongyi Tingwu** to create SRT subtitles. Existing SRT files work without a transcription account.
 
+![Zhimu Player showing video, subtitles, playback controls and a playlist in the Chinese interface](./assets/screenshots/playback-and-playlist.png)
+
+Watch with subtitles and switch the right panel between the playlist, subtitles and reading guide. Example video: 热爱干饭饭 on bilibili. The interface also supports English, as shown below.
+
 ## Release candidate: 1.2.0-rc.8
 
 **This is a release candidate for early users, not a stable release.** Previously named AI Video Player, the project is now **Zhimu Player · 知幕**, continuing its existing features and data formats. rc.8 fixes long subtitles or guides stretching the video area and pushing playback controls outside the window. It passed 68 real Electron layout scenarios, 14 offline test suites and a local in-place upgrade that retained existing data. Real ChatGPT, DeepSeek and Tingwu cloud tasks, and differential updates between GitHub releases, remain unverified for this candidate.
@@ -24,6 +28,10 @@ Choose a file under **Assets** on the [v1.2.0-rc.8 download page](https://github
 See the [release candidate notes](./docs/RELEASE-1.2.0-rc.8.md) for changes and verification limits. These builds are unsigned, so Windows may show an unknown publisher; check the download source. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with the version, reproduction steps and error text. Do not include account details, cookies, API keys or private media.
 
 ## Install and get started
+
+![English first-run setup with ChatGPT web, DeepSeek API and an interface language switch](./assets/screenshots/onboarding-en.png)
+
+Choose your language and guide source on first launch. Connect an existing account, or skip setup and start with local playback.
 
 1. Download **Setup-x64.exe** from the page above, run it, and select English or Simplified Chinese and an installation folder. For an existing installation, close the player and install into the same folder without uninstalling first; data retention was verified in the local upgrade test. For a trial without installation, download and run **Portable-x64.exe**.
 2. On first launch, use the visible **中文 / English** buttons at the top. All setup instructions, step descriptions and messages switch immediately, and your choice is saved automatically. The same buttons are available at the top of Settings. You can skip cloud setup and play local videos immediately.

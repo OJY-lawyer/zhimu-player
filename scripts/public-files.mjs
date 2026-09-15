@@ -5,9 +5,11 @@ const rootFiles = ['.gitignore', 'AGENTS.md', 'README.md', 'README.en.md', 'ä½¿ç
   'package.json', 'package-lock.json', 'electron-builder.json', 'tsconfig.json', 'vite.config.ts']
 const scripts = ['prepare-guide-input.mjs', 'doctor.mjs', 'run-tests.mjs', 'public-files.mjs',
   'export-public.mjs', 'third-party-notices.mjs', 'smoke-release.cjs', 'smoke-window-activation.cjs', 'smoke-player-layout.cjs', 'check-release.mjs']
-// The author explicitly authorized these three About-page images for public distribution.
+// About-page images and the three original conversation screenshots are authorized for public distribution.
 const assets = ['assets/app-icon.png', 'assets/app-icon.ico', 'assets/about/author-wechat-original.png',
-  'assets/about/donation-original.png', 'assets/about/support-frame.png']
+  'assets/about/donation-original.png', 'assets/about/support-frame.png',
+  'assets/screenshots/playback-and-playlist.png', 'assets/screenshots/onboarding-zh-CN.png',
+  'assets/screenshots/onboarding-en.png']
 const textExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.html', '.css', '.md', '.txt', '.yml', '.yaml', '.svg'])
 
 export async function collectPublicFiles(root) {

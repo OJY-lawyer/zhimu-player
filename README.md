@@ -8,6 +8,10 @@
 
 一个安装包，在设置中选择 ChatGPT 网页或 DeepSeek API。字幕识别使用通义听悟，内置流程生成 SRT；已有 SRT 时可以直接使用。
 
+![知幕播放器：视频、字幕、播放控件与右侧播放列表](./assets/screenshots/playback-and-playlist.png)
+
+边看视频边读字幕，右侧随时切换播放列表、字幕和导读。示例视频画面：热爱干饭饭 / 哔哩哔哩。
+
 ## 预发行候选版：1.2.0-rc.8
 
 **这是供首批用户试用的候选版，并非稳定版。** 项目原名为 AI Video Player，现统一为「知幕 Zhimu Player」，延续已有功能和数据格式。rc.8 修复长字幕或导读撑高播放区域、使播放控件越界的问题；已通过 68 个真实 Electron 布局场景、14 组离线测试及本机保留数据的安装升级检查。真实 ChatGPT、DeepSeek、听悟云端任务及 GitHub 跨版本增量更新尚未完成本版验收。
@@ -24,6 +28,10 @@
 变更和验收范围见 [候选版本说明](./docs/RELEASE-1.2.0-rc.8.md)。当前构建未签名，Windows 可能显示发布者未知；请核对下载来源。使用中发现问题，可在 [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) 提供版本、复现步骤和错误文字，不要上传账号信息、Cookie、API Key 或私人视频。
 
 ## 安装后怎么用
+
+![中文首次引导：选择 ChatGPT 网页或 DeepSeek API，并可切换界面语言](./assets/screenshots/onboarding-zh-CN.png)
+
+首次打开就能切换中文 / English，按引导连接已有账号，也可以稍后设置、先播放。
 
 1. 从上述下载页取得 **Setup-x64.exe**，运行后选择安装语言和目录。已有安装版可关闭播放器后安装到原目录，无需先卸载；本机升级已验证数据保留。希望免安装试用时，下载 **Portable-x64.exe** 直接运行。
 2. 首次引导顶部直接提供「中文｜English」按钮，点击立即切换全部引导文案、步骤说明和提示，并自动保存；设置页顶部也有相同按钮。再按引导选择导读来源，默认是 ChatGPT 网页。
