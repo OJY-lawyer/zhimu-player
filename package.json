@@ -12,6 +12,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
+    "setup:runtime": "install-electron",
     "typecheck": "tsc --noEmit",
     "doctor": "node scripts/doctor.mjs",
     "test": "node scripts/run-tests.mjs",

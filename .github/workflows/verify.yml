@@ -15,6 +15,7 @@ jobs:
           node-version: '22.22.2'
           cache: npm
       - run: npm ci
+      - run: npm run setup:runtime
       - run: npm run doctor
       - run: npm run typecheck
       - run: npm test

@@ -15,7 +15,7 @@ for (const name of ['electron', 'electron-builder', 'vite', 'typescript', 'esbui
   } catch { add(name, 'error', 'Dependency missing; run npm ci in the project directory') }
 }
 const electronFile = process.platform === 'win32' ? 'electron.exe' : process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron'
-add('electron-binary', fs.existsSync(path.join(root, 'node_modules/electron/dist', electronFile)) ? 'ok' : 'error', 'Project-local binary; a dependency manifest alone is insufficient')
+add('electron-binary', fs.existsSync(path.join(root, 'node_modules/electron/dist', electronFile)) ? 'ok' : 'error', 'Project-local binary; run npm run setup:runtime if missing (Electron downloads on first use)')
 const edgePaths = [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA]
   .filter(Boolean).map(base => path.join(base, 'Microsoft/Edge/Application/msedge.exe'))
 add('chatgpt-browser', edgePaths.some(candidate => fs.existsSync(candidate)) ? 'ok' : 'warning', 'Microsoft Edge is required for the ChatGPT web route; DeepSeek API does not need Edge')

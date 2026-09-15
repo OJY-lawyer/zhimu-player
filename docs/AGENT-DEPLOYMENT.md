@@ -29,12 +29,15 @@
 
 先运行 `node --version` 并检查已有运行时，不自动修改全局 PATH，不使用其他应用的
 私有依赖目录。如果运行时不满足条件，说明缺口；只在已有授权内安装项目依赖。
-`npm ci` 会下载锁定的包和 Electron 项目内二进制，可能需要网络访问 npm 与 GitHub。
+`npm ci` 下载锁定的依赖包；随后 `npm run setup:runtime` 使用 Electron 自带安装器准备
+项目内运行文件，可能需要访问 npm 与 GitHub。Electron 44 不再在 npm 安装阶段自动
+下载运行文件，因此首次部署须先准备，再执行只读的 doctor 检查。
 
 ## 顺序
 
 ```sh
 npm ci
+npm run setup:runtime
 npm run doctor
 npm run typecheck
 npm test

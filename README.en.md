@@ -140,11 +140,14 @@ Read [AGENTS.md](./AGENTS.md) and the [deployment contract](./docs/AGENT-DEPLOYM
 
 ```sh
 npm ci
+npm run setup:runtime
 npm run doctor
 npm run typecheck
 npm test
 npm run build
 ```
+
+For a fresh source checkout, `setup:runtime` uses Electron's own installer to prepare the project-local runtime before the read-only checks. Existing files are reused. Installer users do not need these commands.
 
 - `npm run dev` opens the development application.
 - `npm run build:app` builds the app without installers.

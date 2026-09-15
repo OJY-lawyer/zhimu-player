@@ -21,6 +21,7 @@ docs/AGENT-DEPLOYMENT.md，再执行用户授权的部署或修改。
 - 先复用合适的已有 Node.js；依赖安装仅影响当前项目。不要自动改系统服务、全局环境
   或安装 FFmpeg、Python、模型。安装包用户不需要开发环境。
 - 保留视频、原字幕和已有用户修改。新字幕修订和导读按产品规则保存到视频目录。
+- 首次 npm ci 后运行 npm run setup:runtime，准备项目内 Electron；doctor 只检查不下载。
 - 运行 npm run doctor、npm run typecheck、npm test 和 npm run build:app。
   UI、真实登录和真实模型/转写验收单独记录，离线测试通过不能代替真实服务可用。
 - GitHub 交付先执行 npm run public:check 和 npm run public:export。仅使用导出文件。

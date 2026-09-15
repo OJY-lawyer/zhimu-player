@@ -4,7 +4,7 @@
 
 ## 自动检查
 
-- 从清洁源码运行 `npm ci`、`npm run doctor`、`npm run typecheck`、`npm test`。
+- 从清洁源码运行 `npm ci`、`npm run setup:runtime`、`npm run doctor`、`npm run typecheck`、`npm test`。
 - 执行 `npm run build`，确认 NSIS 安装程序与便携版均产生，检查未自动发布。
 - 执行 `npm audit --audit-level=high`；区分构建依赖和实际运行时，但不得掩盖高危项。
 - 执行 `npm run public:check`，审阅路径、规则和计数，再导出源码 ZIP。

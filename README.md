@@ -68,11 +68,14 @@
 
 ```sh
 npm ci
+npm run setup:runtime
 npm run doctor
 npm run typecheck
 npm test
 npm run build
 ```
+
+首次源码部署先运行 `setup:runtime`，由 Electron 自带安装器准备项目内运行文件；后续已安装时直接复用。安装包用户不需要执行这些命令。
 
 `npm run dev` 启动开发窗口，`npm run build:app` 仅构建程序；`npm run build` 在 `release/` 生成可选安装目录的当前用户安装程序和便携版，不自动发布。公开源码使用 `npm run public:export` 的白名单导出文件，不要上传包含历史实验和个人配置的开发目录。
 
