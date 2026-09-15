@@ -1,0 +1,51 @@
+{
+  "name": "zhimu-player",
+  "productName": "知幕 Zhimu Player",
+  "version": "1.2.0-rc.8",
+  "private": true,
+  "description": "Local video, subtitle and AI reading guide workspace for Windows",
+  "author": "欧俊言律师",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "doctor": "node scripts/doctor.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "test:browser": "node scripts/run-tests.mjs --browser",
+    "test:desktop": "electron scripts/smoke-release.cjs",
+    "test:window": "node scripts/smoke-window-activation.cjs",
+    "test:layout": "node scripts/smoke-player-layout.cjs",
+    "verify:package": "node scripts/check-release.mjs",
+    "build:app": "tsc --noEmit && vite build",
+    "licenses": "node scripts/third-party-notices.mjs",
+    "build": "npm run licenses && npm run build:app && electron-builder --publish never",
+    "build:dir": "npm run licenses && npm run build:app && electron-builder --dir --publish never",
+    "public:check": "node scripts/export-public.mjs --check",
+    "public:export": "node scripts/export-public.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "electron-updater": "6.8.9",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "typescript": "^5.3.0",
+    "vite": "7.3.6",
+    "vite-plugin-electron": "1.1.2"
+  }
+}

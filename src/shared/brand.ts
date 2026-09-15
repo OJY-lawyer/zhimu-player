@@ -1,0 +1,5 @@
+export const APP_NAME_ZH = '知幕'
+export const APP_NAME_EN = 'Zhimu Player'
+export const APP_DISPLAY_NAME = '知幕 Zhimu Player'
+export const APP_TAGLINE_ZH = '让长视频有章可循。'
+export const APP_TAGLINE_EN = 'Find your way through long videos.'

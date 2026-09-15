@@ -1,0 +1,56 @@
+{
+  "appId": "com.videoplayer.app",
+  "productName": "知幕 Zhimu Player",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "assets/app-icon.png",
+    "package.json",
+    "LICENSE",
+    "NOTICE",
+    "docs/THIRD-PARTY-NOTICES.txt",
+    "!**/*.map"
+  ],
+  "asar": true,
+  "publish": {
+    "provider": "github",
+    "owner": "OJY-lawyer",
+    "repo": "zhimu-player"
+  },
+  "extraResources": [
+    { "from": "LICENSE", "to": "LICENSE" },
+    { "from": "NOTICE", "to": "NOTICE" },
+    { "from": "docs/LICENSE.en.md", "to": "LICENSE.en.md" },
+    { "from": "docs/THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt" }
+  ],
+  "extraMetadata": {
+    "main": "dist/main/index.js"
+  },
+  "win": {
+    "executableName": "Zhimu Player",
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] }
+    ],
+    "icon": "assets/app-icon.ico",
+    "signExecutable": false
+  },
+  "nsis": {
+    "differentialPackage": true,
+    "installerLanguages": ["zh_CN", "en_US"],
+    "displayLanguageSelector": true,
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "Zhimu-Player-${version}-Setup-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "Zhimu-Player-${version}-Portable-${arch}.${ext}"
+  }
+}

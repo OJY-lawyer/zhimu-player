@@ -1,0 +1,102 @@
+.guide-toolbar.panel-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.guide-toolbar .guide-provider-label {
+  overflow-wrap: anywhere;
+}
+
+.guide-language-control {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guide-language-control select {
+  max-width: 190px;
+  min-width: 132px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.guide-language-control select:disabled {
+  opacity: 0.6;
+}
+
+.guide-toolbar .panel-toolbar-actions {
+  flex-shrink: 0;
+}
+
+.subtitle-panel .subtitle-editor-heading {
+  flex-wrap: wrap;
+}
+
+.playlist-panel .asr-task-strip > button {
+  white-space: normal;
+  max-width: 110px;
+}
+
+.playlist-panel .asr-task-copy span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[lang='en'] .drawer-tab {
+  gap: 4px;
+  padding-right: 5px;
+  padding-left: 5px;
+  font-size: 13px;
+}
+
+html[lang='en'] .drawer-tab-count {
+  font-size: 11px;
+}
+
+html[lang='en'] .right-drawer.is-compact .drawer-tab svg,
+html[lang='en'] .right-drawer.is-compact .drawer-tab-count {
+  display: none;
+}
+
+html[lang='en'] .playlist-item-meta {
+  flex-wrap: wrap;
+}
+
+html[lang='en'] .search-result-source {
+  min-width: 55px;
+}
+
+html[lang='en'] .video-empty h1 {
+  max-width: 540px;
+  text-wrap: balance;
+}
+
+html[lang='en'] .panel-toolbar .text-button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1050px) {
+  .video-stage .controls-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    height: auto;
+    min-height: 48px;
+  }
+
+  .video-stage .controls-secondary {
+    margin-left: auto;
+  }
+}
+.subtitle-panel .subtitle-time-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.subtitle-panel .subtitle-time-editor label,
+.subtitle-panel .subtitle-time-editor input { min-width: 0; }
+.subtitle-panel .nudge-buttons { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.subtitle-panel .nudge-buttons button { min-width: 0; padding: 0; }

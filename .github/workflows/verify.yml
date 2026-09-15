@@ -1,0 +1,30 @@
+name: Verify source
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run doctor
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:app
+      - run: npm run licenses
+      - run: npm run public:check
+      - run: npm audit --audit-level=high
+      - run: npm run public:export
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-review
+          path: outputs/Zhimu-Player-*-Source.zip*
+          if-no-files-found: error
