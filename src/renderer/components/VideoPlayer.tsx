@@ -85,6 +85,7 @@ export function VideoPlayer({
   const controlsTimerRef = useRef<number | null>(null)
   const singleClickTimerRef = useRef<number | null>(null)
   const continuePlaybackRef = useRef(false)
+  const stageRef = useRef<HTMLElement | null>(null)
 
   const subtitles = item?.subtitles || []
   const subtitleOffset = item?.subtitleOffset || 0
@@ -133,13 +134,32 @@ export function VideoPlayer({
   const adjustVolume = useCallback((delta: number) => {
     const element = video.videoRef.current
     if (!element) return
-    const current = element.muted ? 0 : element.volume
+    // Muting preserves the chosen level. A volume gesture resumes from that level instead of
+    // unexpectedly dropping to 5%, while scrolling up from zero starts at 5%.
+    const current = element.volume
     const next = Math.max(0, Math.min(1, current + delta))
     video.setVolumeValue(next)
     onVolumeChange(next)
     onMutedChange(next === 0)
     wakeControls()
-  }, [onMutedChange, onVolumeChange, video, wakeControls])
+  }, [onMutedChange, onVolumeChange, video.setVolumeValue, video.videoRef, wakeControls])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target
+      if (!(target instanceof Element) || !event.deltaY) return
+      if (target !== video.videoRef.current && !target.closest('.volume-control')) return
+      event.preventDefault()
+      event.stopPropagation()
+      adjustVolume(event.deltaY > 0 ? -0.05 : 0.05)
+    }
+    // React's delegated wheel listener is passive. A native listener is required to consume
+    // wheel gestures over the volume button/slider without also scrolling a containing panel.
+    stage.addEventListener('wheel', handleWheel, { passive: false })
+    return () => stage.removeEventListener('wheel', handleWheel)
+  }, [adjustVolume, video.videoRef])
 
   const toggleMute = useCallback(() => {
     const element = video.videoRef.current
@@ -226,6 +246,8 @@ export function VideoPlayer({
     const element = video.videoRef.current
     if (!element || !item) return
     video.setDuration(element.duration)
+    video.setCurrentTime(element.currentTime)
+    video.setIsPlaying(!element.paused)
     video.setVolumeValue(initialVolume)
     video.setMutedValue(initialMuted)
     video.changePlaybackRate(playbackRate)
@@ -274,6 +296,7 @@ export function VideoPlayer({
 
   return (
     <section
+      ref={stageRef}
       className={'video-stage ' + (controlsVisible ? 'controls-visible ' : '') + (isDraggingFile ? 'is-dragging' : '')}
       onMouseMove={wakeControls}
       onDragOver={(event) => {
@@ -319,10 +342,6 @@ export function VideoPlayer({
             }}
             onEnded={handleEnded}
             onError={() => setMediaError('当前播放器无法解码这个视频的容器或编码。视频文件本身没有被修改。')}
-            onWheel={(event) => {
-              event.preventDefault()
-              adjustVolume(event.deltaY > 0 ? -0.05 : 0.05)
-            }}
           />
 
           {mediaError && (

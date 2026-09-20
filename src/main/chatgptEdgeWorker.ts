@@ -1,8 +1,14 @@
-import { app, BrowserWindow, clipboard, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, screen } from 'electron'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { promises as fs, existsSync } from 'node:fs'
-import { chatGptModelPolicy, chatGptTarget } from '../shared/guideGeneration'
-import type { ChatGptTier } from '../shared/contracts'
+import { chatGptTarget, normalizeChatGptSelection } from '../shared/guideGeneration'
+import { CHATGPT_COOKIE_LIMITS, parseChatGptCookieImport, type CdpCookie } from './chatgptCookies'
+import { applyChatGptCookies, ChatGptCookieImportError } from './chatgptCookieSession'
+import { chatGptPageProbeExpression } from './chatgptAuth'
+import { answerModelMatches, modelControlExpression, type WebModelControl } from './chatgptModelPage'
+import { detectChatGptIntelligence, readChatGptIntelligenceModels, selectChatGptIntelligence } from './chatgptIntelligence'
+import { chatGptComposerExpression, type ChatGptComposerState } from './chatgptComposer'
+export { parseChatGptCookies } from './chatgptCookies'
 import path from 'node:path'
 import { EdgeCdp, connectEdge, parseEdgeEndpoint } from './edgeCdp'
 import type {
@@ -10,32 +16,11 @@ import type {
   ChatGptGuideRequest,
   ChatGptGuideResult,
   ChatGptProbeResult,
+  ChatGptModelsResult,
+  ChatGptWebSelection,
 } from '../shared/contracts'
 
 type WindowProvider = () => BrowserWindow | null
-
-interface CookieEditorCookie {
-  name?: unknown
-  value?: unknown
-  domain?: unknown
-  path?: unknown
-  secure?: unknown
-  httpOnly?: unknown
-  sameSite?: unknown
-  expirationDate?: unknown
-  session?: unknown
-}
-
-interface CdpCookie {
-  name: string
-  value: string
-  domain: string
-  path: string
-  secure: boolean
-  httpOnly: boolean
-  sameSite?: 'Strict' | 'Lax' | 'None'
-  expires?: number
-}
 
 function edgePath(): string {
   const candidates = [process.env.VIDEO_PLAYER_EDGE_PATH,
@@ -90,46 +75,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function normalizeSameSite(value: unknown): CdpCookie['sameSite'] {
-  const normalized = String(value || '').toLowerCase()
-  if (normalized === 'strict') return 'Strict'
-  if (normalized === 'lax') return 'Lax'
-  if (normalized === 'none' || normalized === 'no_restriction') return 'None'
-  return undefined
-}
-
-export function parseChatGptCookies(raw: string): CdpCookie[] {
-  const parsed = JSON.parse(raw) as unknown
-  const source = Array.isArray(parsed)
-    ? parsed
-    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { cookies?: unknown }).cookies)
-      ? (parsed as { cookies: unknown[] }).cookies
-      : []
-
-  return source.flatMap((entry) => {
-    const cookie = entry as CookieEditorCookie
-    const domain = typeof cookie.domain === 'string' ? cookie.domain.toLowerCase() : ''
-    const bareDomain = domain.replace(/^\./, '')
-    if (!cookie.name || typeof cookie.value !== 'string') return []
-    if (bareDomain !== 'chatgpt.com' && !bareDomain.endsWith('.chatgpt.com')) return []
-
-    const normalized: CdpCookie = {
-      name: String(cookie.name),
-      value: cookie.value,
-      domain,
-      path: typeof cookie.path === 'string' ? cookie.path : '/',
-      secure: Boolean(cookie.secure),
-      httpOnly: Boolean(cookie.httpOnly),
-    }
-    const sameSite = normalizeSameSite(cookie.sameSite)
-    if (sameSite) normalized.sameSite = sameSite
-    if (!cookie.session && typeof cookie.expirationDate === 'number') {
-      normalized.expires = cookie.expirationDate
-    }
-    return [normalized]
-  })
-}
-
 async function waitForExit(child: ChildProcess, timeoutMs: number): Promise<void> {
   if (child.exitCode !== null) return
   const exited = await Promise.race([
@@ -170,7 +115,7 @@ export async function launchManualChatGptLogin(profileDirectory: string): Promis
       // Edge may hand this launch to another process and exit 0. Neither that exit nor opening
       // the browser proves sign-in. The user owns this window, including after the player exits.
       child.unref()
-      resolve({ success: true, authenticated: false, projectVisible: false,
+      resolve({ success: true, authenticated: false, authStatus: 'unknown', projectVisible: false,
         message: '已请求打开普通 Edge 登录窗口。完成登录后关闭这个专用窗口，再点击“检查连接”。' })
     })
   })
@@ -287,8 +232,8 @@ async function evaluateValue<T>(cdp: EdgeCdp, sessionId: string, expression: str
     exceptionDetails?: { text?: string; exception?: { description?: string } }
   }>('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId)
   if (response.exceptionDetails) {
-    const detail = response.exceptionDetails.exception?.description || response.exceptionDetails.text || ''
-    throw new Error('Edge 页面脚本执行失败' + (detail ? '：' + detail.slice(0, 400) : ''))
+    // Browser exception text can contain page data. Keep it outside renderer diagnostics.
+    throw new Error('Edge 页面脚本执行失败，请稍后重试。')
   }
   return response.result?.value as T
 }
@@ -312,33 +257,28 @@ async function waitForValue<T>(
 }
 
 async function inspectChatGptPage(cdp: EdgeCdp, sessionId: string): Promise<ChatGptProbeResult> {
-  return evaluateValue<ChatGptProbeResult>(cdp, sessionId, `(async () => {
-    const text = document.body?.innerText || '';
-    let sessionUser = false;
-    try {
-      const response = await fetch('/api/auth/session', { credentials: 'include' });
-      const session = response.ok ? await response.json() : null;
-      sessionUser = Boolean(session?.user);
-    } catch {}
-    const projectVisible = text.includes(${JSON.stringify(PROJECT_NAME)});
-    const blocked = /verify you are human|just a moment|cloudflare|验证您是真人|安全验证/i.test(document.title + ' ' + text.slice(0, 800));
-    const hasLoginAction = [...document.querySelectorAll('a,button')].some((node) =>
-      /^(log in|sign up|登录|注册)$/i.test((node.textContent || '').trim())
-    );
-    const authenticated = sessionUser;
-    return {
-      success: authenticated && !blocked,
-      authenticated: authenticated && !blocked,
-      projectVisible,
-      blocked,
-      currentUrl: location.href,
-      message: blocked
-        ? 'ChatGPT 要求进行人机验证。'
-        : authenticated
-          ? 'ChatGPT 登录成功。模型与思考档位会在生成前核验。'
-          : 'ChatGPT 登录态无效或已经过期。'
-    };
-  })()`)
+  return evaluateValue<ChatGptProbeResult>(cdp, sessionId, chatGptPageProbeExpression(PROJECT_NAME))
+}
+
+async function waitForChatGptAuth(cdp: EdgeCdp, sessionId: string): Promise<ChatGptProbeResult> {
+  const deadline = Date.now() + 20_000
+  let result: ChatGptProbeResult
+  do {
+    if (guideCancelled) throw new Error('ChatGPT 后台任务已取消')
+    result = await inspectChatGptPage(cdp, sessionId)
+    if (result.blocked || result.authStatus === 'authenticated' || result.authStatus === 'signed-out') return result
+    await delay(500)
+  } while (Date.now() < deadline)
+  return result
+}
+
+class GuidePageError extends Error {}
+
+function requireChatGptAuth(connection: ChatGptProbeResult): void {
+  if (connection.authStatus === 'authenticated') return
+  if (connection.blocked) throw new GuidePageError(connection.message)
+  if (connection.authStatus === 'signed-out') throw new GuidePageError('ChatGPT 尚未登录，请在设置中登录或导入 Cookie。')
+  throw new GuidePageError('暂时无法确认 ChatGPT 登录状态，请稍后重试；无需立即重新登录。')
 }
 
 async function navigateToProject(cdp: EdgeCdp, sessionId: string, projectName: string): Promise<ChatGptProjectContext> {
@@ -418,7 +358,7 @@ async function navigateToProject(cdp: EdgeCdp, sessionId: string, projectName: s
           hasComposer: Boolean(document.querySelector('main #prompt-textarea, main textarea, main [contenteditable="true"]')),
         };
       })()`)
-    throw new Error('项目入口已找到，但导航后页面未就绪：离开首页=' + state.leftHome
+    throw new GuidePageError('项目入口已找到，但导航后页面未就绪：离开首页=' + state.leftHome
       + '，显示项目名=' + state.hasProjectName + '，显示输入框=' + state.hasComposer)
   }
 
@@ -438,7 +378,7 @@ async function navigateToProject(cdp: EdgeCdp, sessionId: string, projectName: s
     30_000,
   )
   const projectId = extractProjectIdFromResourceUrls(initialProjectState.resourceUrls)
-  if (!projectId) throw new Error('项目页面已经打开，但无法取得项目标识')
+  if (!projectId) throw new GuidePageError('项目页面已经打开，但无法取得项目标识')
   await navigatePage(cdp, sessionId, projectUrl)
   await waitForValue<boolean>(
     cdp,
@@ -455,42 +395,97 @@ async function navigateToProject(cdp: EdgeCdp, sessionId: string, projectName: s
   return { projectId, projectUrl }
 }
 
-async function selectGuideModel(cdp: EdgeCdp, sessionId: string, tier: ChatGptTier): Promise<void> {
-  const target = chatGptTarget(tier)
-  const policy = chatGptModelPolicy(tier)
-  // Only selected controls count as evidence, never mentions in chat or the sidebar.
-  const inspect = (kind: 'model' | 'effort', action: 'check' | 'open' | 'pick') => `(() => {
-    const kind = ${JSON.stringify(kind)}, action = ${JSON.stringify(action)};
-    const matcher = new RegExp(${JSON.stringify(policy[kind])}, 'i');
-    const visible = n => n instanceof HTMLElement && n.getBoundingClientRect().width > 0 && n.getBoundingClientRect().height > 0;
-    const label = n => ((n.textContent || '') + ' ' + (n.getAttribute('aria-label') || '')).trim();
-    const active = n => n.getAttribute('aria-checked') === 'true' || n.getAttribute('aria-selected') === 'true' || n.getAttribute('aria-pressed') === 'true';
-    const nodes = [...document.querySelectorAll('button,[role="menuitemradio"],[role="menuitem"],[role="option"]')].filter(visible);
-    // Some web layouts expose a combined selected “Astra Pro” model instead of
-    // a separate effort button. Require that exact label on the model control.
-    if (action === 'check' && kind === 'effort' && ${JSON.stringify(tier === 'pro')}) {
-      const combined = nodes.some(n => n.tagName === 'BUTTON' && n.getAttribute('aria-haspopup') &&
-        (/model-switcher/i.test(n.getAttribute('data-testid') || '') || /model|模型/i.test(n.getAttribute('aria-label') || '')) &&
-        /astra\\s*(?:[·/—-]\\s*)?pro\\b/i.test((n.textContent || '').trim()));
-      if (combined) return true;
+async function dismissModelMenu(cdp: EdgeCdp, sessionId: string): Promise<void> {
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId)
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId)
+}
+
+async function selectGuideModel(cdp: EdgeCdp, sessionId: string, selection: ChatGptWebSelection, modelOnly = false): Promise<void> {
+  if (!modelOnly && await detectChatGptIntelligence(cdp, sessionId)) {
+    if (await selectChatGptIntelligence(cdp, sessionId, selection)) return
+    throw new GuidePageError('无法确认所选网页模型或推理档位。请刷新网页选项或在登录窗口核对；未发送字幕。')
+  }
+  for (const kind of ['model', 'reasoning'] as const) {
+    if (kind === 'reasoning' && modelOnly) continue
+    const inspect = (action: 'read' | 'open' | 'choose' | 'check') => modelControlExpression(kind, action, selection)
+    if ((await evaluateValue<WebModelControl>(cdp, sessionId, inspect('check'))).matched) continue
+    await dismissModelMenu(cdp, sessionId)
+    const opened = await evaluateValue<WebModelControl>(cdp, sessionId, inspect('open'))
+    if (opened.available) {
+      await delay(350)
+      await evaluateValue(cdp, sessionId, inspect('choose'))
+      const deadline = Date.now() + 5000
+      do {
+        await delay(250)
+        if ((await evaluateValue<WebModelControl>(cdp, sessionId, inspect('check'))).matched) break
+      } while (Date.now() < deadline)
     }
-    if (action === 'check') return nodes.some(n => matcher.test((n.textContent || '').trim()) && (active(n) || (n.tagName === 'BUTTON' && n.getAttribute('aria-haspopup') && (kind === 'model' ? /model-switcher/i.test(n.getAttribute('data-testid') || '') || /model|模型/i.test(n.getAttribute('aria-label') || '') : /reason|think|思考/i.test(label(n)) || n.closest('main,form')))));
-    if (action === 'pick') {
-      const n = nodes.find(n => matcher.test((n.textContent || '').trim()) && /menuitem|option/.test(n.getAttribute('role') || ''));
-      if (!n) return false; n.click(); return true;
+    if (!(await evaluateValue<WebModelControl>(cdp, sessionId, inspect('check'))).matched) {
+      throw new GuidePageError('无法确认所选网页模型或推理档位。请刷新网页选项或在登录窗口核对；未发送字幕。')
     }
-    const n = nodes.find(n => n.tagName === 'BUTTON' && n.getAttribute('aria-haspopup') && (kind === 'model' ? /model-switcher/i.test(n.getAttribute('data-testid') || '') || /model|模型/i.test(label(n)) : /reason|think|思考|standard|extended|heavy|light|极高|pro/i.test(label(n)) && n.closest('main,form')));
-    if (!n) return false; n.click(); return true;
-  })()`
-  for (const kind of ['model', 'effort'] as const) {
-    if (await evaluateValue<boolean>(cdp, sessionId, inspect(kind, 'check'))) continue
-    await evaluateValue(cdp, sessionId, inspect(kind, 'open'))
-    await delay(500)
-    await evaluateValue(cdp, sessionId, inspect(kind, 'pick'))
-    await delay(500)
-    if (!await evaluateValue<boolean>(cdp, sessionId, inspect(kind, 'check'))) {
-      throw new Error('无法确认 ' + target.model + ' · ' + target.effort + '。请打开专用登录窗口核对账号可用模型和档位；未发送字幕。')
+  }
+  await dismissModelMenu(cdp, sessionId)
+}
+
+export async function listChatGptModels(profileDirectory: string): Promise<ChatGptModelsResult> {
+  const { child, cdp } = await startEdge(profileDirectory, 'background-window')
+  try {
+    const sessionId = await openPage(cdp, CHATGPT_URL)
+    requireChatGptAuth(await waitForChatGptAuth(cdp, sessionId))
+    if (await detectChatGptIntelligence(cdp, sessionId)) {
+      const models = await readChatGptIntelligenceModels(cdp, sessionId)
+      return { success: models.length > 0, models, message: models.length
+        ? '已读取当前网页可用选项。请选择模型和推理档位；生成前会再次确认。'
+        : '当前网页菜单无法可靠读取，请打开登录窗口核对；已有选择已保留。' }
     }
+    const placeholder: ChatGptWebSelection = { model: '', reasoning: null }
+    const read = (kind: 'model' | 'reasoning', action: 'read' | 'open', selection = placeholder) =>
+      evaluateValue<WebModelControl>(cdp, sessionId, modelControlExpression(kind, action, selection))
+    const initialModel = await read('model', 'read')
+    const initialEffort = await read('reasoning', 'read')
+    if (!initialModel.available) throw new GuidePageError('没有找到网页模型菜单，请打开登录窗口核对当前页面。')
+    await read('model', 'open')
+    await delay(400)
+    const menu = await read('model', 'read')
+    await dismissModelMenu(cdp, sessionId)
+    const models: ChatGptModelsResult['models'] = []
+    try {
+      for (const model of menu.options.slice(0, 30)) {
+        // A mode-only menu does not identify its model family. Presets remain available
+        // for those layouts; do not publish an ambiguous name as a verified model.
+        if (/^(instant|thinking|即时|思考)$/i.test(model)) continue
+        if (guideCancelled) throw new GuidePageError('ChatGPT 后台任务已取消')
+        const selection = { model, reasoning: null }
+        try { await selectGuideModel(cdp, sessionId, selection, true) } catch (error) {
+          if (error instanceof GuidePageError) continue
+          throw error
+        }
+        await delay(300)
+        const effortControl = await read('reasoning', 'read', selection)
+        let reasoningOptions: string[] = []
+        if (effortControl.available) {
+          await read('reasoning', 'open', selection)
+          await delay(250)
+          reasoningOptions = (await read('reasoning', 'read', selection)).options
+          await dismissModelMenu(cdp, sessionId)
+          // A selector with an unreadable menu is not evidence of a model without effort settings.
+          if (!reasoningOptions.length) continue
+        }
+        models.push({ model, reasoningOptions })
+      }
+    } finally {
+      await dismissModelMenu(cdp, sessionId).catch(() => {})
+      if (initialModel.label) {
+        await selectGuideModel(cdp, sessionId, { model: initialModel.label, reasoning: initialEffort.label }).catch(() => {})
+      }
+    }
+    return { success: models.length > 0, models, message: models.length
+      ? '已读取当前网页可用选项。请选择模型和推理档位；生成前会再次确认。'
+      : '当前网页菜单无法可靠读取，请打开登录窗口核对；已有选择已保留。' }
+  } finally {
+    await cdp.close()
+    await waitForExit(child, 3000)
+    activeEdgeProcess = null; activeEdgeCdp = null
   }
 }
 
@@ -513,7 +508,7 @@ async function setFileInput(cdp: EdgeCdp, sessionId: string, filePath: string): 
       node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
       return true;
     })()`)
-    if (!clicked) throw new Error('没有找到 ChatGPT 附件按钮')
+    if (!clicked) throw new GuidePageError('没有找到 ChatGPT 附件按钮')
     await delay(500)
     root = await cdp.send<{ root: { nodeId: number } }>('DOM.getDocument', { depth: -1, pierce: true }, sessionId)
     input = await cdp.send<{ nodeId: number }>('DOM.querySelector', {
@@ -521,7 +516,7 @@ async function setFileInput(cdp: EdgeCdp, sessionId: string, filePath: string): 
       selector: 'form input[type="file"][multiple], form input[type="file"]',
     }, sessionId)
   }
-  if (!input.nodeId) throw new Error('没有找到 ChatGPT 文件上传控件')
+  if (!input.nodeId) throw new GuidePageError('没有找到 ChatGPT 文件上传控件')
   await cdp.send('DOM.setFileInputFiles', { nodeId: input.nodeId, files: [filePath] }, sessionId)
 }
 
@@ -560,16 +555,15 @@ async function waitForAttachedFile(cdp: EdgeCdp, sessionId: string, fileName: st
 }
 
 async function submitGuideTask(cdp: EdgeCdp, sessionId: string, promptText: string): Promise<string> {
-  const focused = await evaluateValue<boolean>(cdp, sessionId, `(() => {
-    const composer = document.querySelector('#prompt-textarea, textarea, [contenteditable="true"]');
-    if (!(composer instanceof HTMLElement)) return false;
-    composer.focus();
-    return true;
-  })()`)
-  if (!focused) throw new Error('没有找到 ChatGPT 输入框')
-  await cdp.send('Input.insertText', {
-    text: promptText,
-  }, sessionId)
+  const initial = await evaluateValue<ChatGptComposerState>(cdp, sessionId, chatGptComposerExpression('read', promptText))
+  if (!initial.found) throw new GuidePageError('没有找到 ChatGPT 输入框')
+  if (!initial.empty) throw new GuidePageError('ChatGPT 输入框已有内容，已保留草稿并停止发送。请在专用窗口检查。')
+  await evaluateValue<ChatGptComposerState>(cdp, sessionId, chatGptComposerExpression('paste', promptText))
+  try {
+    await waitForValue<ChatGptComposerState>(cdp, sessionId, chatGptComposerExpression('read', promptText), state => state.found && state.matches, 5_000)
+  } catch {
+    throw new GuidePageError('字幕任务未完整写入 ChatGPT，已停止发送。请稍后重试。')
+  }
   await waitForValue<boolean>(cdp, sessionId, `(() => {
     const controls = [...document.querySelectorAll('button')];
     const button = document.querySelector('[data-testid="send-button"]')
@@ -577,13 +571,16 @@ async function submitGuideTask(cdp: EdgeCdp, sessionId: string, promptText: stri
       || controls.find((item) => item.getAttribute('type') === 'submit' && !item.hasAttribute('disabled'));
     return Boolean(button instanceof HTMLElement && !button.hasAttribute('disabled') && button.getAttribute('aria-disabled') !== 'true');
   })()`, Boolean, 30_000)
+  const verified = await evaluateValue<ChatGptComposerState>(cdp, sessionId, chatGptComposerExpression('read', promptText))
+  if (!verified.matches) throw new GuidePageError('字幕任务未完整写入 ChatGPT，已停止发送。请稍后重试。')
+  submitted = true // An interrupted click may already have submitted; never retry automatically after this point.
   const sent = await evaluateValue<boolean>(cdp, sessionId, `(() => {
     const button = document.querySelector('[data-testid="send-button"]');
     if (!(button instanceof HTMLElement) || button.hasAttribute('disabled') || button.getAttribute('aria-disabled') === 'true') return false;
     button.click();
     return true;
   })()`)
-  if (!sent) throw new Error('ChatGPT 附件已经就绪，但发送按钮不可用')
+  if (!sent) throw new GuidePageError('ChatGPT 附件已经就绪，但发送按钮不可用')
   await waitForValue<boolean>(
     cdp,
     sessionId,
@@ -596,7 +593,7 @@ async function submitGuideTask(cdp: EdgeCdp, sessionId: string, promptText: stri
     sessionId,
     `(() => (location.pathname.split('/c/')[1] || '').split('/')[0])()`,
   )
-  if (!conversationId) throw new Error('对话已经发送，但无法取得对话标识')
+  if (!conversationId) throw new GuidePageError('对话已经发送，但无法取得对话标识')
   return conversationId
 }
 
@@ -605,25 +602,46 @@ async function waitForGuideAnswer(
   sessionId: string,
   conversationId: string,
   projectId: string | null,
+  selection: ChatGptWebSelection,
 ): Promise<string> {
   const deadline = Date.now() + 30 * 60_000
+  let committedConversationId: string | null = null
   while (Date.now() < deadline) {
-    if (guideCancelled) throw new Error('ChatGPT 后台任务已取消')
-    const state = await evaluateValue<{
+    if (guideCancelled) throw new GuidePageError('ChatGPT 后台任务已取消')
+    const state: {
       content: string
       finished: boolean
       loaded: boolean
       gizmoId: string | null
       projectId: string | null
-    }>(cdp, sessionId, `(async () => {
+      model: string
+      effort: string | null
+      conversationId: string
+      failure?: 'auth-required' | 'access-denied' | 'rate-limit' | 'conversation-changed'
+    } = await evaluateValue(cdp, sessionId, `(async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const pending = { content: '', finished: false, loaded: false };
       try {
-        const authResponse = await fetch('/api/auth/session', { credentials: 'include' });
+        const route = location.pathname.match(/\\/c\\/([a-zA-Z0-9-]{1,100})(?:\\/|$)/);
+        const id = route?.[1] || ${JSON.stringify(conversationId)};
+        const committed = ${JSON.stringify(committedConversationId)};
+        if (location.origin !== 'https://chatgpt.com' || committed && id !== committed) return { ...pending, failure: 'conversation-changed' };
+        const authResponse = await fetch('/api/auth/session', { credentials: 'include', signal: controller.signal });
+        if (authResponse.status === 401) return { ...pending, failure: 'auth-required' };
+        if (authResponse.status === 403) return { ...pending, failure: 'access-denied' };
         const auth = authResponse.ok ? await authResponse.json() : null;
-        if (!auth?.accessToken) return { content: '', finished: false, loaded: false };
-        const response = await fetch('/backend-api/conversation/' + ${JSON.stringify(conversationId)}, {
+        if (!auth?.accessToken) return pending;
+        // Chat initially uses an optimistic local ID and replaces it with the saved ID.
+        // Follow that replacement until the server has actually returned this conversation.
+        const response = await fetch('/backend-api/conversation/' + id, {
           credentials: 'include',
+          signal: controller.signal,
           headers: { Authorization: 'Bearer ' + auth.accessToken },
         });
+        if (response.status === 401) return { ...pending, failure: 'auth-required' };
+        if (response.status === 403) return { ...pending, failure: 'access-denied' };
+        if (response.status === 429) return { ...pending, failure: 'rate-limit' };
         const detail = response.ok ? await response.json() : null;
         const entries = [];
         let node = detail?.mapping?.[detail?.current_node];
@@ -641,18 +659,32 @@ async function waitForGuideAnswer(
           content,
           finished: message?.end_turn === true && status === 'finished_successfully',
           loaded: Boolean(detail),
+          conversationId: id,
+          model: typeof message?.metadata?.model_slug === 'string' ? message.metadata.model_slug : '',
+          effort: typeof message?.metadata?.reasoning_effort === 'string' ? message.metadata.reasoning_effort : null,
           gizmoId: typeof detail?.gizmo_id === 'string' ? detail.gizmo_id : null,
           projectId: typeof detail?.project_id === 'string' ? detail.project_id : null,
         };
-      } catch { return { content: '', finished: false, loaded: false, gizmoId: null, projectId: null }; }
+      } catch { return pending; }
+      finally { clearTimeout(timer); controller.abort(); }
     })()`)
+    if (state.failure === 'access-denied') throw new GuidePageError('ChatGPT 拒绝读取已提交对话（403）。请在专用登录窗口按网页提示处理；不要重复提交。')
+    if (state.failure === 'auth-required') throw new GuidePageError('读取导读时登录已失效。请在专用窗口查看已提交的对话。')
+    if (state.failure === 'rate-limit') throw new GuidePageError('ChatGPT 暂时限制了读取频率。请稍后在专用窗口查看已提交的对话。')
+    if (state.failure === 'conversation-changed') throw new GuidePageError('生成期间网页切换到了其他对话，已停止读取。请在专用窗口查看原对话。')
+    if (state.loaded) committedConversationId = state.conversationId
     if (projectId && state.loaded && !conversationBelongsToProject({ gizmo_id: state.gizmoId, project_id: state.projectId }, projectId)) {
-      throw new Error(`新建对话未归属“${PROJECT_NAME}”，本次导读未保存`)
+      throw new GuidePageError(`新建对话未归属“${PROJECT_NAME}”，本次导读未保存`)
     }
-    if (state.finished && state.content.trim()) return state.content
+    if (state.finished && state.content.trim()) {
+      if (!answerModelMatches(selection, state.model, state.effort)) {
+        throw new GuidePageError('本次回复的模型与所选设置不符，或网页未提供可核验的模型信息，导读未保存。请在 ChatGPT 中核对这次对话。')
+      }
+      return state.content
+    }
     await delay(8_000)
   }
-  throw new Error('等待 ChatGPT 完成导读超时')
+  throw new GuidePageError('等待 ChatGPT 完成导读超时')
 }
 
 async function runGuideAttempt(
@@ -667,15 +699,14 @@ async function runGuideAttempt(
   try {
     emit({ status: 'running', stage: 'opening-project', message: request.projectName ? '正在进入指定项目' : '正在打开新的 ChatGPT 对话', attempt })
     const sessionId = await openPage(cdp, CHATGPT_URL)
-    const connection = await inspectChatGptPage(cdp, sessionId)
-    if (connection.blocked) throw new Error(connection.message)
-    if (!connection.authenticated) throw new Error('ChatGPT 登录态无效，请在设置中重新登录。')
+    requireChatGptAuth(await waitForChatGptAuth(cdp, sessionId))
     const project = request.projectName?.trim() ? await navigateToProject(cdp, sessionId, request.projectName.trim()) : null
-    const tier = request.tier === 'pro' ? 'pro' : 'plus'
-    const target = chatGptTarget(tier)
+    const selection = normalizeChatGptSelection(request.selection)
+    if (!selection) throw new GuidePageError('请先在设置中选择 ChatGPT 网页模型和推理档位。')
+    const target = chatGptTarget(selection)
 
-    emit({ status: 'running', stage: 'selecting-model', message: '正在确认 ' + target.model + ' · ' + target.effort, attempt })
-    await selectGuideModel(cdp, sessionId, tier)
+    emit({ status: 'running', stage: 'selecting-model', message: '正在确认 ' + target.label, attempt })
+    await selectGuideModel(cdp, sessionId, selection)
 
     const taskMarkdown = await fs.readFile(taskPath, 'utf8')
     let promptText = ''
@@ -688,11 +719,11 @@ async function runGuideAttempt(
       await waitForAttachedFile(cdp, sessionId, path.basename(taskPath))
       promptText = '请读取附件并生成内容导读。严格遵循附件中的全部规则；最终 Markdown 正文放在一个 markdown 代码块中，代码块外不要写任何文字。'
     }
-    submitted = true // From this point retrying could create another billable conversation.
+    await selectGuideModel(cdp, sessionId, selection)
     const conversationId = await submitGuideTask(cdp, sessionId, promptText)
 
-    emit({ status: 'running', stage: 'waiting', message: target.model + ' · ' + target.effort + ' 正在生成导读', attempt })
-    return await waitForGuideAnswer(cdp, sessionId, conversationId, project?.projectId || null)
+    emit({ status: 'running', stage: 'waiting', message: target.label + ' 正在生成导读', attempt })
+    return await waitForGuideAnswer(cdp, sessionId, conversationId, project?.projectId || null, selection)
   } finally {
     activeGuideCdp = null
     await cdp.close()
@@ -715,25 +746,15 @@ export async function probeEdgeUrl(profileDirectory: string, url: string, mode: 
 }
 
 export async function probeChatGpt(profileDirectory: string, cookies: CdpCookie[] = []): Promise<ChatGptProbeResult> {
-  if (activeEdgeProcess) return { success: false, authenticated: false, projectVisible: false, message: 'Edge 后台任务正在运行。' }
+  if (activeEdgeProcess) return { success: false, authenticated: false, authStatus: 'unknown', projectVisible: false, message: 'Edge 后台任务正在运行。' }
   const { child, cdp } = await startEdge(profileDirectory, 'background-window')
   try {
-    if (cookies.length > 0) await cdp.send('Storage.setCookies', { cookies })
-    const sessionId = await openPage(cdp, CHATGPT_URL)
-
-    const deadline = Date.now() + 20_000
-    let result: ChatGptProbeResult | null = null
-    while (Date.now() < deadline) {
-      result = await inspectChatGptPage(cdp, sessionId)
-      if (result.blocked || result.authenticated) break
-      await delay(500)
+    const sessionId = await openPage(cdp, 'about:blank')
+    if (cookies.length) {
+      await applyChatGptCookies({ send: (method, params) => cdp.send(method, params, sessionId) }, cookies)
     }
-    return result || {
-      success: false,
-      authenticated: false,
-      projectVisible: false,
-      message: '没有检测到 ChatGPT 登录态。',
-    }
+    await navigatePage(cdp, sessionId, CHATGPT_URL)
+    return await waitForChatGptAuth(cdp, sessionId)
   } finally {
     await cdp.close()
     await waitForExit(child, 3_000)
@@ -757,7 +778,7 @@ function connectionFailureMessage(error: unknown): string {
     'Edge 启动后连接未就绪，请关闭播放器专用 Edge 窗口后重试。',
     '专用 Edge 窗口已关闭，请重新打开登录窗口。', '专用 Edge 连接中断，请重新打开登录窗口。',
     '专用 Edge 尚未连接。', '专用 Edge 连接超时。', '已取消浏览器连接。',
-    'Edge 页面加载超时',
+    'Edge 页面加载超时', 'Edge 项目页面加载超时', 'Edge 页面脚本执行失败，请稍后重试。',
   ]
   if (known.includes(message)) return message
   if (/^net::ERR_[A-Z_]+$/.test(message)) return 'ChatGPT 页面暂时无法打开，请检查网络后重新打开登录窗口。'
@@ -768,10 +789,10 @@ export function registerChatGptEdgeWorker(getWindow: WindowProvider): void {
   const profileDirectory = () => path.join(app.getPath('userData'), 'chatgpt-edge-profile')
   const emit = (progress: ChatGptGuideProgress) => { const w = getWindow(); if (w && !w.isDestroyed() && !w.webContents.isDestroyed()) w.webContents.send('chatgpt-guide-progress', progress) }
   const handle = (channel: string, action: (...args: any[]) => Promise<any>) => ipcMain.handle(channel, async (...args) => {
-    if (workerBusy) return { success: false, authenticated: false, projectVisible: false, message: '专用浏览器正在工作，请完成或关闭登录窗口后重试。' }
+    if (workerBusy) return { success: false, authenticated: false, authStatus: 'unknown', projectVisible: false, message: '专用浏览器正在工作，请完成或关闭登录窗口后重试。' }
     workerBusy = true; guideCancelled = false
     try { return await action(...args) }
-    catch (error) { return { success: false, authenticated: false, projectVisible: false, message: connectionFailureMessage(error) } }
+    catch (error) { return { success: false, authenticated: false, authStatus: 'unknown', projectVisible: false, message: connectionFailureMessage(error) } }
     finally { workerBusy = false }
   })
   handle('chatgpt-login', async (): Promise<ChatGptProbeResult> => {
@@ -781,43 +802,48 @@ export function registerChatGptEdgeWorker(getWindow: WindowProvider): void {
     const { child, cdp } = await startEdge(profileDirectory(), 'background-window')
     try { await cdp.send('Storage.clearCookies') }
     finally { await cdp.close(); await waitForExit(child, 3000); activeEdgeProcess = null; activeEdgeCdp = null }
-    return { success: true, authenticated: false, projectVisible: false, message: '已清除播放器专用 ChatGPT 登录态。' }
+    return { success: true, authenticated: false, authStatus: 'signed-out', projectVisible: false, message: '已清除播放器专用 ChatGPT 登录态。' }
   })
 
-  handle('chatgpt-import-cookies', async (): Promise<ChatGptProbeResult> => {
+  handle('chatgpt-import-cookies', async (_event, source: unknown = 'clipboard', pastedText?: unknown): Promise<ChatGptProbeResult> => {
+    const failed = (message: string): ChatGptProbeResult => ({ success: false, authenticated: false, authStatus: 'unknown', projectVisible: false, message })
+    if (source !== 'clipboard' && source !== 'file' && source !== 'paste') return failed('请选择文件、剪贴板或粘贴 JSON 导入。')
+    let raw = ''
+    if (source === 'file') {
+      const options: Electron.OpenDialogOptions = { properties: ['openFile'], filters: [{ name: 'Cookie-Editor JSON', extensions: ['json', 'txt'] }] }
+      const window = getWindow()
+      const selected = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+      if (selected.canceled || selected.filePaths.length !== 1) return failed('已取消导入，原有登录资料未更改。')
+      try {
+        const stat = await fs.stat(selected.filePaths[0])
+        if (!stat.isFile() || stat.size > CHATGPT_COOKIE_LIMITS.inputBytes) return failed('Cookie 导出文件过大，请只导出 ChatGPT 网站的 Cookie。')
+        raw = await fs.readFile(selected.filePaths[0], 'utf8')
+      } catch { return failed('无法读取所选 Cookie 文件，请重新选择。') }
+    } else if (source === 'paste') {
+      if (typeof pastedText !== 'string') return failed('请粘贴 Cookie-Editor 导出的 JSON。')
+      raw = pastedText
+    } else raw = await clipboard.readText()
+    let imported: ReturnType<typeof parseChatGptCookieImport>
+    try { imported = parseChatGptCookieImport(raw) }
+    catch (error) { return failed(error instanceof Error ? error.message : 'Cookie 导出内容无法识别，请重新导出。') }
+    if (!imported.cookies.length) return failed('没有找到可导入的 ChatGPT Cookie，请从已登录的 ChatGPT 页面重新导出。')
     try {
-      const cookies = parseChatGptCookies(await clipboard.readText())
-      if (cookies.length === 0) {
-        return { success: false, authenticated: false, projectVisible: false, message: '剪贴板里没有 ChatGPT 的 Cookie-Editor JSON。' }
-      }
-      clipboard.clear()
-      return await probeChatGpt(profileDirectory(), cookies)
-    } catch (error) {
-      return {
-        success: false,
-        authenticated: false,
-        projectVisible: false,
-        message: error instanceof Error ? error.message : '导入 ChatGPT 登录态失败。',
-      }
-    }
+      const result = await probeChatGpt(profileDirectory(), imported.cookies)
+      if (source === 'clipboard' && await clipboard.readText() === raw) await clipboard.clear()
+      return { ...result, message: '已导入 ' + imported.cookies.length + ' 条 ChatGPT Cookie。' + result.message }
+    } catch (error) { return failed(error instanceof ChatGptCookieImportError ? error.message : '导入或检查连接未完成。请关闭专用登录窗口、检查网络后重试；原浏览器不受影响。') }
   })
 
-  handle('chatgpt-probe', async (): Promise<ChatGptProbeResult> => {
-    try {
-      return await probeChatGpt(profileDirectory())
-    } catch (error) {
-      return {
-        success: false,
-        authenticated: false,
-        projectVisible: false,
-        message: error instanceof Error ? error.message : '检测 ChatGPT 登录态失败。',
-      }
-    }
+  handle('chatgpt-probe', async (): Promise<ChatGptProbeResult> => probeChatGpt(profileDirectory()))
+  handle('chatgpt-models', async (): Promise<ChatGptModelsResult> => {
+    try { return await listChatGptModels(profileDirectory()) }
+    catch (error) { return { success: false, models: [], message: error instanceof GuidePageError ? error.message : connectionFailureMessage(error) } }
   })
 
   handle('chatgpt-generate-guide', async (_event, request: ChatGptGuideRequest): Promise<ChatGptGuideResult> => {
     if (activeEdgeProcess) return { success: false, message: 'Edge 后台任务正在运行。' }
     if (typeof request?.taskMarkdown !== 'string' || !request.taskMarkdown.trim() || request.taskMarkdown.length > 8_000_000) return { success: false, message: '导读任务内容为空。' }
+    if (!normalizeChatGptSelection(request?.selection)) return { success: false, message: '请先在设置中选择 ChatGPT 网页模型和推理档位。' }
 
     guideCancelled = false
     generationBusy = true
@@ -841,7 +867,7 @@ export function registerChatGptEdgeWorker(getWindow: WindowProvider): void {
             emit({ status: 'cancelled', stage: 'completed', message: '已取消 ChatGPT 导读任务', attempt })
             return { success: false, cancelled: true, message: 'ChatGPT 导读任务已取消。' }
           }
-          lastError = error instanceof Error ? error.message : lastError
+          lastError = error instanceof GuidePageError ? error.message : connectionFailureMessage(error)
           if (/登录态|人机验证/.test(lastError)) break
         }
       }

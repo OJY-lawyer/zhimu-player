@@ -29,7 +29,8 @@ if (mode === 'upgrade') {
   fs.writeFileSync(path.join(profile, 'player-state.json'), JSON.stringify({ version: 1, activePlaylistId: playlistId, volume: 0, muted: true, autoplayNext: false, alwaysOnTop: false, drawer: { pinned: true, width: 420 }, subtitleStyle: { visible: true, size: 22, verticalPosition: 10, backgroundOpacity: .58 }, playlists: { [playlistId]: { id: playlistId, sourcePath: media, sourceKind: 'single-video', displayName: 'Sample fixture', activeVideoPath: media, activeDrawerTab: 'guide', activeGuidePath: guidePath, playbackRate: 1.5, videos: [{ videoPath: media, order: 0, lastPosition: 2, duration: 4, subtitleOffset: .25, completed: false, isNew: false }] } }, updatedAt: new Date().toISOString() }));
 }
 const errors = [];
-let cloudAttempts = 0, listCalls = 0;
+let cloudAttempts = 0, listCalls = 0, chatMenuCalls = 0;
+const cookieImportSources = [];
 app.on('browser-window-created', (_event, window) => {
   window.hide();
   window.webContents.on('console-message', (_e, details) => { if (details.level === 'error') errors.push(details.message); });
@@ -43,11 +44,15 @@ for (const name of ['chatgpt-login', 'chatgpt-probe', 'asr-login', 'asr-probe', 
 }
 ipcMain.removeHandler('api-models');
 ipcMain.handle('api-models', async () => { listCalls++; return { source: 'live', models: ['deepseek-flash', 'fixture-manual-model'], fetchedAt: new Date().toISOString() }; });
+ipcMain.removeHandler('chatgpt-models');
+ipcMain.handle('chatgpt-models', async () => { chatMenuCalls++; return { success: true, models: [{ model: 'GPT-5.6 Sol', reasoningOptions: ['Medium', 'High'] }, { model: 'GPT-6 Astra', reasoningOptions: ['Pro'] }], message: '已读取当前网页可用选项。请选择模型和推理档位；生成前会再次确认。' }; });
+ipcMain.removeHandler('chatgpt-import-cookies');
+ipcMain.handle('chatgpt-import-cookies', async (_event, source, text) => { cookieImportSources.push(source); if (source === 'paste') assert.equal(text, '[{"name":"fixture"}]'); else assert.equal(text, undefined); return { success: true, authenticated: true, authStatus: 'authenticated', projectVisible: false, message: '已导入 1 条 ChatGPT Cookie。ChatGPT 登录成功。模型与思考档位会在生成前核验。' }; });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const timeout = setTimeout(() => finish(false, 'desktop test timed out'), 30000);
 function finish(passed, error) {
   clearTimeout(timeout);
-  fs.writeFileSync(path.join(output, mode + '-desktop.json'), JSON.stringify({ passed, error, mode, version: require('../package.json').version, packagedEntry: !!process.env.ZHIMU_SMOKE_ENTRY, isolatedAppData: true, stableUserDataAndSessionData: true, legacyStateFixture: mode === 'upgrade', cloudAttempts, realCloudCalls: false, simulatedModelListCalls: listCalls, consoleErrors: errors }, null, 2));
+  fs.writeFileSync(path.join(output, mode + '-desktop.json'), JSON.stringify({ passed, error, mode, version: require('../package.json').version, packagedEntry: !!process.env.ZHIMU_SMOKE_ENTRY, isolatedAppData: true, stableUserDataAndSessionData: true, legacyStateFixture: mode === 'upgrade', cloudAttempts, realCloudCalls: false, simulatedModelListCalls: listCalls, simulatedChatMenuCalls: chatMenuCalls, cookieImportSources, consoleErrors: errors }, null, 2));
   app.exit(passed ? 0 : 1);
 }
 async function main() {
@@ -79,8 +84,39 @@ async function main() {
   }
   await js(`document.querySelector('.title-bar-controls button[title="Settings & about"]').click()`); await pause(100);
   assert.match(await body(), /Zhimu Player/);
+  assert.equal(await js(`document.querySelector('#chat-model').value`), mode === 'upgrade' ? 'GPT-6 Astra' : '');
+  if (mode === 'upgrade') assert.equal(await js(`document.querySelector('#chat-reasoning').value`), 'Pro');
+  assert(!/Previous setting|旧设置/.test(await body()), 'migration details stay out of the customer interface');
+  await js(`(()=>{const el=document.querySelector('#chat-model'); el.value='GPT-5.6 Sol'; el.dispatchEvent(new Event('change',{bubbles:true}));})()`); await pause(50);
+  await js(`(()=>{const el=document.querySelector('#chat-reasoning'); el.value='Medium'; el.dispatchEvent(new Event('change',{bubbles:true}));})()`); await pause(50);
+  await click('Refresh options from ChatGPT'); await pause(100);
+  assert.equal(await js(`document.querySelector('#chat-model').value`), 'GPT-5.6 Sol');
+  assert.equal(await js(`document.querySelector('#chat-reasoning').value`), 'Medium');
+  await click('Import cookies'); await pause(80);
+  await click('Import JSON file'); await pause(100);
+  await click('Import clipboard'); await pause(100);
+  await click('Paste JSON'); await pause(80);
+  await js(`(()=>{const el=document.querySelector('#chat-cookie-json'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'[{"name":"fixture"}]');el.dispatchEvent(new Event('input',{bubbles:true}));})()`); await pause(50);
+  await click('Import pasted JSON'); await pause(100);
+  assert.deepEqual(cookieImportSources, ['file', 'clipboard', 'paste']);
+  await click('Paste JSON'); await pause(80);
+  assert.equal(await js(`document.querySelector('#chat-cookie-json').value`), '', 'pasted cookies are cleared after import');
+  await shot('cookie-paste-English');
+  await click('Paste JSON'); await pause(50);
+  assert.match(await body(), /Signed in to ChatGPT/);
+  assert(!/已导入|条 ChatGPT/.test(await body()), 'English import status is translated');
+  await shot('chat-model-cookie-English');
+  await js(`document.querySelector('.setup-cookie-import').scrollIntoView({block:'center'})`); await pause(80);
+  await shot('cookie-import-English');
+  await switchLanguage('zh-CN'); await pause(80); await shot('cookie-import-Chinese');
+  await switchLanguage('en'); await pause(50);
+  await click('Save settings'); await pause(120);
+  const savedSelection = JSON.parse(fs.readFileSync(path.join(profile, 'config.json'))).chatGptSelection;
+  assert.deepEqual(savedSelection, { model: 'GPT-5.6 Sol', reasoning: 'Medium' });
+  await js(`document.querySelector('.title-bar-controls button[title="Settings & about"]').click()`); await pause(80);
+  assert.match(await body(), /Previously confirmed signed in/);
+  assert.equal(await js(`document.querySelector('#chat-model').value`), 'GPT-5.6 Sol');
   if (mode === 'upgrade') {
-    assert.equal(await js(`document.querySelector('#chat-tier').value`), 'pro');
     assert.equal(await js(`document.querySelector('#asr-language').value`), 'en');
     await js(`document.querySelectorAll('.setup-source')[1].click()`); await pause(350);
     assert.equal(await js(`document.querySelector('#api-key').value`), '');

@@ -48,6 +48,7 @@ export interface AsrRunResult {
 export interface ChatGptProbeResult {
   success: boolean
   authenticated: boolean
+  authStatus?: 'authenticated' | 'signed-out' | 'unknown'
   projectVisible: boolean
   blocked?: boolean
   currentUrl?: string
@@ -57,12 +58,30 @@ export interface ChatGptProbeResult {
 export interface ConnectionResult { success: boolean; authenticated: boolean; message: string }
 export type ChatGptTier = 'plus' | 'pro'
 
+/** Names from the ChatGPT website; these are not OpenAI API model identifiers. */
+export interface ChatGptWebSelection {
+  model: string
+  reasoning: string | null
+}
+
+export interface ChatGptWebModelOption {
+  model: string
+  reasoningOptions: string[]
+}
+
+export interface ChatGptModelsResult {
+  success: boolean
+  models: ChatGptWebModelOption[]
+  message: string
+}
+
 export type GuideProvider = 'chatgpt-web' | 'compatible-api'
 
 export interface ChatGptGuideRequest {
   taskMarkdown: string
   playlistName: string
   tier?: ChatGptTier
+  selection?: ChatGptWebSelection
   projectName?: string
 }
 
@@ -133,6 +152,7 @@ export interface AIConfig {
   model: string
   provider?: GuideProvider
   chatGptTier?: ChatGptTier
+  chatGptSelection?: ChatGptWebSelection | null
   chatGptProject?: string
   hasApiKey?: boolean
   clearApiKey?: boolean
@@ -197,8 +217,9 @@ export interface ElectronAPI extends AppUpdateAPI {
   cancelAsrTranscription: () => Promise<boolean>
   onAsrProgress: (listener: (progress: AsrProgress) => void) => () => void
 
-  importChatGptCookies: () => Promise<ChatGptProbeResult>
+  importChatGptCookies: (source?: 'clipboard' | 'file' | 'paste', text?: string) => Promise<ChatGptProbeResult>
   probeChatGpt: () => Promise<ChatGptProbeResult>
+  listChatGptModels: () => Promise<ChatGptModelsResult>
   generateChatGptGuide: (request: ChatGptGuideRequest) => Promise<ChatGptGuideResult>
   cancelChatGptGuide: () => Promise<boolean>
   onChatGptGuideProgress: (listener: (progress: ChatGptGuideProgress) => void) => () => void

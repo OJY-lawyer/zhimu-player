@@ -52,7 +52,7 @@ export function useVideo() {
   const changeVolume = useCallback((delta: number) => {
     const video = videoRef.current
     if (!video) return
-    const baseVolume = video.muted ? 0 : video.volume
+    const baseVolume = video.volume
     setVolumeValue(baseVolume + delta)
   }, [setVolumeValue])
 

@@ -4,7 +4,8 @@ import path from 'node:path'
 const rootFiles = ['.gitignore', 'AGENTS.md', 'README.md', 'README.en.md', '使用说明.md', 'DESIGN.md', 'LICENSE', 'NOTICE',
   'package.json', 'package-lock.json', 'electron-builder.json', 'tsconfig.json', 'vite.config.ts']
 const scripts = ['prepare-guide-input.mjs', 'doctor.mjs', 'run-tests.mjs', 'public-files.mjs',
-  'export-public.mjs', 'third-party-notices.mjs', 'smoke-release.cjs', 'smoke-window-activation.cjs', 'smoke-player-layout.cjs', 'check-release.mjs']
+  'export-public.mjs', 'third-party-notices.mjs', 'smoke-release.cjs', 'smoke-window-activation.cjs', 'smoke-player-layout.cjs',
+  'smoke-playback-interactions.cjs', 'smoke-chatgpt-cookie-cdp.cjs', 'smoke-chatgpt-settings.cjs', 'check-release.mjs']
 // About-page images and the three original conversation screenshots are authorized for public distribution.
 const assets = ['assets/app-icon.png', 'assets/app-icon.ico', 'assets/about/author-wechat-original.png',
   'assets/about/donation-original.png', 'assets/about/support-frame.png',

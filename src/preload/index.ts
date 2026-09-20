@@ -59,7 +59,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on('asr-progress', subscription)
     return () => ipcRenderer.removeListener('asr-progress', subscription)
   },
-  importChatGptCookies: () => ipcRenderer.invoke('chatgpt-import-cookies'),
+  importChatGptCookies: (source = 'clipboard', text) => ipcRenderer.invoke('chatgpt-import-cookies', source, source === 'paste' ? text : undefined),
+  listChatGptModels: () => ipcRenderer.invoke('chatgpt-models'),
   probeChatGpt: () => ipcRenderer.invoke('chatgpt-probe'),
   generateChatGptGuide: (request: ChatGptGuideRequest) =>
     ipcRenderer.invoke('chatgpt-generate-guide', request),

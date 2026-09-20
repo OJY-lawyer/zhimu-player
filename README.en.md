@@ -2,7 +2,7 @@
 
 [简体中文](./README.md) · [English](./README.en.md)
 
-[GitHub repository](https://github.com/OJY-lawyer/zhimu-player) · [Downloads / Releases](https://github.com/OJY-lawyer/zhimu-player/releases) · [Report an issue](https://github.com/OJY-lawyer/zhimu-player/issues)
+[GitHub repository](https://github.com/OJY-lawyer/zhimu-player) · [Download rc.10](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10) · [Report an issue](https://github.com/OJY-lawyer/zhimu-player/issues)
 
 A Windows desktop workspace for video reading with AI: watch long recordings, browse subtitles and create timestamped reading guides. Open one video or a folder of lecture, livestream or course recordings and navigate them in one window.
 
@@ -12,30 +12,34 @@ One application includes both **ChatGPT web** (the default) and **DeepSeek API**
 
 Watch with subtitles and switch the right panel between the playlist, subtitles and reading guide. Example video: 热爱干饭饭 on bilibili. The interface also supports English, as shown below.
 
-## Release candidate: 1.2.0-rc.8
+## Release candidate: 1.2.0-rc.10
 
-**This is a release candidate for early users, not a stable release.** Previously named AI Video Player, the project is now **Zhimu Player · 知幕**, continuing its existing features and data formats. rc.8 fixes long subtitles or guides stretching the video area and pushing playback controls outside the window. It passed 68 real Electron layout scenarios, 14 offline test suites and a local in-place upgrade that retained existing data. Real ChatGPT, DeepSeek and Tingwu cloud tasks, and differential updates between GitHub releases, remain unverified for this candidate.
+**This is a release candidate for users to try, not a stable release.** rc.10 fixes Cookie import rollback, incomplete multiline prompts and response retrieval in new chats. Import cookies from a file, the clipboard or pasted JSON using the visible connection buttons. Model and reasoning choices are separate, including Sol Pro and Astra Pro when available in the website menu. Sidebar subtitles stay highlighted through gaps and pauses.
 
-Choose a file under **Assets** on the [v1.2.0-rc.8 download page](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.8). Use the files actually listed there:
+This release passed 25 offline test files, type checks and the build, 19 real Electron playback checks and 15 synthetic Cookie protocol checks in real Edge. A local installation upgrade preserved four settings, playback and sign-in files. A real account generated and retrieved a complete timestamped guide from **short synthetic text using Sol · Medium**. Both Pro choices were checked in the menu and selected, but were not used to generate. Long transcripts or attachments, generation with Pro or other untested levels, new Tingwu jobs, other machines and GitHub differential updates remain unverified. See the [rc.10 release notes](./docs/RELEASE-1.2.0-rc.10.md).
+
+Choose a file under **Assets** on the [v1.2.0-rc.10 download page](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10):
 
 | File | Purpose |
 |---|---|
-| `Zhimu-Player-1.2.0-rc.8-Setup-x64.exe` | Windows x64 installer for the current user |
-| `Zhimu-Player-1.2.0-rc.8-Portable-x64.exe` | Windows x64 portable application |
-| `Zhimu-Player-1.2.0-rc.8-Source.zip` | Clean source archive with a manifest and SHA-256 checksum |
-| `Zhimu-Player-1.2.0-rc.8-Setup-x64.exe.blockmap`, `latest.yml` | Installed-edition update assets; no need to open these manually |
+| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe` | Windows x64 installer for the current user |
+| `Zhimu-Player-1.2.0-rc.10-Portable-x64.exe` | Windows x64 portable application |
+| `Zhimu-Player-1.2.0-rc.10-Source.zip` | Clean source archive with a manifest and SHA-256 checksum |
+| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe.blockmap`, `latest.yml` | Installed-edition update assets; no need to open these manually |
 
-See the [release candidate notes](./docs/RELEASE-1.2.0-rc.8.md) for changes and verification limits. These builds are unsigned, so Windows may show an unknown publisher; check the download source. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with the version, reproduction steps and error text. Do not include account details, cookies, API keys or private media.
+Previously named AI Video Player, **Zhimu Player · 知幕** continues its existing features and data formats. The [rc.8 notes](./docs/RELEASE-1.2.0-rc.8.md) remain a historical record. These builds are unsigned, so Windows may show an unknown publisher; check the download source. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with the version, reproduction steps and error text. Do not include account details, cookies, API keys or private media.
 
 ## Install and get started
+
+The instructions below apply to the rc.10 release candidate.
 
 ![English first-run setup with ChatGPT web, DeepSeek API and an interface language switch](./assets/screenshots/onboarding-en.png)
 
 Choose your language and guide source on first launch. Connect an existing account, or skip setup and start with local playback.
 
-1. Download **Setup-x64.exe** from the page above, run it, and select English or Simplified Chinese and an installation folder. For an existing installation, close the player and install into the same folder without uninstalling first; data retention was verified in the local upgrade test. For a trial without installation, download and run **Portable-x64.exe**.
+1. Run the **Setup-x64.exe** you received and select English or Simplified Chinese and an installation folder. For an existing installation, close the player and install into the same folder without uninstalling first; the local rc.10 in-place upgrade and data preservation checks passed. For a trial without installation, run the matching **Portable-x64.exe**.
 2. On first launch, use the visible **中文 / English** buttons at the top. All setup instructions, step descriptions and messages switch immediately, and your choice is saved automatically. The same buttons are available at the top of Settings. You can skip cloud setup and play local videos immediately.
-3. For **ChatGPT web**, open the player's regular Edge sign-in window and sign in manually. Close that dedicated window, then select **Check connection** in the player. No browser automation runs during sign-in, and your everyday Edge windows remain separate. Select the tier matching your account: **Plus → GPT-6 Astra / Extra high**, **Pro → Astra Pro**.
+3. **ChatGPT web** settings show three visible buttons: **Open sign-in**, **Import cookies** and **Check connection**. Sign in manually in the dedicated Edge window, close it, then check the connection. Alternatively, select **Import cookies** and choose a Cookie-Editor JSON file, the clipboard, or **Paste JSON**. Select the website model and reasoning level separately; use **Refresh options from ChatGPT** to read the account's menu. Plus/Pro no longer locks the model. Manual sign-in is not automated, and your everyday Edge profile stays separate.
 4. For **DeepSeek API**, enter your own API key. The app fetches models when you leave the key field. Choose a model and save; use **Refresh models** whenever needed. Your existing selection is never replaced automatically. API access, model availability and charges depend on your provider account.
 5. To generate subtitles, sign in to **Tingwu** from the player and select the actual speech language of your video: **Chinese** or **English**. You can skip this if you already have subtitles.
 6. Open a video or folder. Generate any missing subtitles, then choose **Simplified Chinese**, **English** or **Match subtitles** in the Guide panel and generate a new guide.
@@ -60,10 +64,16 @@ New setups default to **Match subtitles** for guide output; existing configurati
 
 | Provider | Setup | Account and billing |
 |---|---|---|
-| ChatGPT web, default | Sign in in the dedicated Edge window and select your actual plan | Uses the models and limits available to your ChatGPT web account |
+| ChatGPT web, default | Sign in in the regular dedicated Edge window or explicitly import cookies, then choose a website model and reasoning level | Uses the models and limits available to your ChatGPT web account |
 | DeepSeek API | Enter your API key and choose from the models returned by your API | Billed separately through your DeepSeek API account |
 
-The player checks the requested ChatGPT model and reasoning setting before sending subtitles. If they are unavailable or the page has changed, generation stops with an error. It does not silently downgrade, use the old Sol model for Pro, or switch providers. Account sign-in alone does not prove that a model is available.
+The player checks the chosen ChatGPT model and reasoning setting before sending subtitles. If they are unavailable or the page has changed, generation stops with an error. It does not silently downgrade or switch providers. Presets are candidates, not verified account entitlements. Valid existing selections are retained; the app asks for a change only when an option is missing or cannot be confirmed.
+
+The website checks in this round confirmed **Sol: Instant / Medium / High / Extra High / Pro**, and **Astra: Pro**. Availability follows the actual account menu. Other levels under Latest without an explicit family badge are not assumed to be Astra.
+
+ChatGPT web does not require Codex to be installed or signed in. Network errors, timeouts and human-verification pages show their specific cause with an **unknown** status, retaining the last confirmed sign-in record rather than declaring the account signed out or clearing its session.
+
+Cookie import reads a local file, the clipboard or JSON you paste only after your explicit action. It accepts a JSON array or `cookies` list, up to 2 MiB and 2,000 entries. Only valid cookies for `chatgpt.com` and its subdomains are accepted; unrelated, expired or invalid entries are skipped. The app does not copy your everyday browser profile or display the contents read from files or the clipboard. The paste field clears on submission, closing or switching providers, and its contents are never saved in settings. Import checks the connection, but an import count is not proof of authentication. Complete any website security check yourself. Regular dedicated-window sign-in remains available.
 
 ChatGPT web, Codex subscriptions and OpenAI API access are separate channels. Installing the player or asking Codex to deploy it does not transfer allowances between them. This project is an independent tool, not an official OpenAI, DeepSeek or Alibaba product.
 
@@ -77,6 +87,7 @@ The installed edition supports **Settings → About & support → App updates**.
 - **Open one video** to create a single-item playlist. Other files in its folder are not automatically added. You can also drop a video or folder onto the player.
 - Move the pointer to the right edge to open the workspace with **Playlist**, **Subtitles** and **Guide** tabs. Pin it to keep it open and drag its left edge to resize. The workspace also works in fullscreen.
 - Playback position, speed, watched status and subtitle styling are restored. Video always retains its aspect ratio.
+- Click a subtitle or click/drag the progress bar to seek. The volume slider adapts to the available player area. Use the wheel over the video, volume button or volume slider to adjust volume within 0–100%.
 - Press **Ctrl+F** to search subtitles across all Parts and the current guide.
 
 ### Playback shortcuts
@@ -128,6 +139,8 @@ A temporary network failure may show a clearly marked list cached during the cur
 |---|---|
 | Microsoft Edge is missing | Install or repair Edge, or explicitly select DeepSeek API |
 | Sign-in window still asks you to sign in | Complete the provider’s verification step, then return and check again |
+| ChatGPT status cannot be confirmed | Retry after checking the network or completing verification. This is not proof that your session expired; the app preserves the last confirmed record |
+| Cookie import fails | Read the specific message in the connection area. Export JSON from the signed-in chatgpt.com page, check the 2 MiB / 2,000-entry limits, then use file, clipboard or pasted JSON import. Do not share the export |
 | ChatGPT model or reasoning option cannot be confirmed | Check your actual account options in the dedicated window. Keep the error stage for a compatibility report; the player does not downgrade |
 | DeepSeek rejects authentication, credit or model access | Check your own API key, balance and model permissions with the provider |
 | Tingwu sign-in expires | Reopen its sign-in window in Settings and sign in again |
@@ -161,13 +174,14 @@ For a fresh source checkout, `setup:runtime` uses Electron's own installer to pr
 - `npm run build:app` builds the app without installers.
 - `npm run build:dir` creates an unpacked build for inspection.
 - `npm run build` produces the current-user installer and portable edition in `release/`; it does not publish them.
+- `npm run test:playback` exercises real playback, subtitle/progress seeking and volume controls with isolated data and silent synthetic media. Add `-- --slow-media` to test before the file has fully loaded.
 - `npm run public:check` scans the public file allowlist. `npm run public:export -- --output outputs` exports a clean source ZIP with a file manifest and SHA-256 checksum.
 
 The source project folder is now named `zhimu-player`. To preserve upgrade data, the internal application ID remains `com.videoplayer.app`, the user-data folder remains `video-player`, and existing localStorage keys and `ai-video-player-guide:` guide markers remain compatible. These are internal data identifiers and must not be renamed by a blanket replacement. Users do not need to move sign-in sessions or media manually because of the product rename.
 
 An example instruction for your own deployment agent:
 
-> Deploy Zhimu Player according to AGENTS.md. Reuse a suitable existing Node.js installation, install project dependencies, run the checks and build, then open onboarding in English. I will handle account sign-in myself. Keep ChatGPT web as the default and let me select my plan. Do not upload my configuration or publish a repository.
+> Deploy Zhimu Player according to AGENTS.md. Reuse a suitable existing Node.js installation, install project dependencies, run the checks and build, then open onboarding in English. I will handle account sign-in myself. Keep ChatGPT web as the default and let me choose the website model and reasoning level. Do not upload my configuration or publish a repository.
 
 Use project-local dependencies. Do not copy another app’s browser profile or credentials, install unrelated ASR software, or change shared system services. The doctor command checks the environment without reading account data; a successful doctor result does not prove cloud access.
 
@@ -181,7 +195,7 @@ Original videos and subtitles are preserved. Subtitle revisions and guide versio
 
 Provider pages, account permissions and web interfaces may change. Passing offline tests or building an installer does not prove that real accounts, long recordings or a new machine work. Follow the [release checklist](./docs/RELEASE-CHECKLIST.md) and report the actual scope. Current releases have no code signature.
 
-The [1.1.2 dynamic model discovery record](./docs/VALIDATION-1.1.2.md), [1.1.0 language adaptation and Astra Pro record](./docs/VALIDATION-1.1.0.md) and [1.0.0 record](./docs/VALIDATION-2026-09-14.md) are preserved historical reports from the AI Video Player name. They do not establish that 1.2.0-rc.8 passed the same checks. Real ChatGPT, DeepSeek and Tingwu results must be stated separately from UI and offline verification.
+The [1.1.2 dynamic model discovery record](./docs/VALIDATION-1.1.2.md), [1.1.0 language adaptation and Astra Pro record](./docs/VALIDATION-1.1.0.md), [1.0.0 record](./docs/VALIDATION-2026-09-14.md) and rc.8 results remain historical records. They do not establish that rc.10 passed the same checks. This round's real ChatGPT evidence covers account reconnection, menu selection and one guide generated from short synthetic text with Sol Medium. It does not validate long transcripts or attachment uploads, generation with other models, DeepSeek, Tingwu, other machines or differential updates. See the [rc.10 verification scope](./docs/RELEASE-1.2.0-rc.10.md).
 
 ## Author, support and license
 

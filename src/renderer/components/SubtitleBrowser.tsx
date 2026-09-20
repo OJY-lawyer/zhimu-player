@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { SubtitleSource } from '../playerTypes'
-import { findSubtitleIndex, formatTime, type Subtitle } from '../utils/srtParser'
+import { formatTime, type Subtitle } from '../utils/srtParser'
+import { buildSubtitleFollowTimeline, findSubtitleFollowIndex } from '../utils/subtitleFollow'
 import { Icon } from './Icons'
 import { t, translateMessage } from '../i18n'
 
@@ -63,9 +64,10 @@ export function SubtitleBrowser({
   const [editError, setEditError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  const followTimeline = useMemo(() => buildSubtitleFollowTimeline(subtitles), [subtitles])
   const currentIndex = useMemo(
-    () => findSubtitleIndex(subtitles, currentTime + subtitleOffset),
-    [currentTime, subtitleOffset, subtitles],
+    () => findSubtitleFollowIndex(followTimeline, currentTime + subtitleOffset),
+    [currentTime, subtitleOffset, followTimeline],
   )
 
   const scrollToCurrent = useCallback((behavior: ScrollBehavior = 'smooth') => {

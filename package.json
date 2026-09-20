@@ -1,7 +1,7 @@
 {
   "name": "zhimu-player",
   "productName": "知幕 Zhimu Player",
-  "version": "1.2.0-rc.8",
+  "version": "1.2.0-rc.10",
   "private": true,
   "description": "Local video, subtitle and AI reading guide workspace for Windows",
   "author": "欧俊言律师",
@@ -20,6 +20,7 @@
     "test:desktop": "electron scripts/smoke-release.cjs",
     "test:window": "node scripts/smoke-window-activation.cjs",
     "test:layout": "node scripts/smoke-player-layout.cjs",
+    "test:playback": "node scripts/smoke-playback-interactions.cjs",
     "verify:package": "node scripts/check-release.mjs",
     "build:app": "tsc --noEmit && vite build",
     "licenses": "node scripts/third-party-notices.mjs",
@@ -27,7 +28,9 @@
     "build:dir": "npm run licenses && npm run build:app && electron-builder --dir --publish never",
     "public:check": "node scripts/export-public.mjs --check",
     "public:export": "node scripts/export-public.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:settings": "node scripts/smoke-chatgpt-settings.cjs",
+    "test:cookie-browser": "node scripts/smoke-chatgpt-cookie-cdp.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

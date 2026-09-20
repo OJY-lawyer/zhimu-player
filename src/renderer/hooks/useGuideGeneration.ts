@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatGptGuideProgress } from '../../shared/contracts'
 import {
   cleanGuideMarkdown,
-  chatGptTarget,
+  chatGptGuideVersionLabel,
+  normalizeChatGptSelection,
   DEEPSEEK_MODEL,
   DEEPSEEK_URL,
   guideProviderLabel,
@@ -30,7 +31,7 @@ export function useGuideGeneration(
   playlist: ActivePlaylist | null,
   createVersion: (content: string, label?: string) => Promise<string | null>,
 ) {
-  const [config, setConfig] = useState<AIConfig>(() => ({ baseUrl: DEEPSEEK_URL, apiKey: '', model: DEEPSEEK_MODEL, provider: 'chatgpt-web', chatGptTier: 'plus', chatGptProject: '', guideLanguage: 'source', asrLanguage: getAppLanguage() === 'en' ? 'en' : 'cn' }))
+  const [config, setConfig] = useState<AIConfig>(() => ({ baseUrl: DEEPSEEK_URL, apiKey: '', model: DEEPSEEK_MODEL, provider: 'chatgpt-web', chatGptSelection: null, chatGptProject: '', guideLanguage: 'source', asrLanguage: getAppLanguage() === 'en' ? 'en' : 'cn' }))
   const [configReady, setConfigReady] = useState(false)
   const cancelledRef = useRef(false)
   const runningRef = useRef(false)
@@ -87,6 +88,12 @@ export function useGuideGeneration(
   const generate = useCallback(async () => {
     if (!playlist || runningRef.current) return
     const provider = normalizeGuideProvider(config.provider)
+    const chatSelection = normalizeChatGptSelection(config.chatGptSelection)
+    if (provider === 'chatgpt-web' && !chatSelection) {
+      setError(getAppLanguage() === 'en' ? 'Choose a ChatGPT web model and reasoning level in Settings first.' : '请先在设置中选择 ChatGPT 网页模型和推理档位。')
+      setShowConfig(true)
+      return
+    }
     if (provider === 'compatible-api' && (!config.baseUrl || !config.model)) {
       setError('请先配置导读模型。')
       setShowConfig(true)
@@ -113,7 +120,7 @@ export function useGuideGeneration(
         const first = await window.electronAPI.generateChatGptGuide({
           taskMarkdown: prompt,
           playlistName: playlist.displayName,
-          tier: config.chatGptTier,
+          selection: chatSelection!,
           projectName: config.chatGptProject,
         })
         if (first.cancelled) {
@@ -122,7 +129,7 @@ export function useGuideGeneration(
         }
         if (!first.success || !first.content) throw new Error(first.message)
         result = cleanGuideMarkdown(first.content)
-        versionLabel = 'Guide.ChatGPT-Astra-' + (config.chatGptTier === 'pro' ? 'Pro' : 'xhigh') + '.' + outputLanguage
+        versionLabel = chatGptGuideVersionLabel(chatSelection!) + '.' + outputLanguage
       } else {
         setProgress({ status: 'running', stage: 'waiting', message: 'API 正在生成导读', attempt: 1 })
         const messages: { role: 'user' | 'assistant'; content: string }[] = [{ role: 'user', content: prompt }]
@@ -173,7 +180,7 @@ export function useGuideGeneration(
     error,
     progress,
     provider,
-    providerLabel: guideProviderLabel(provider, config.model, config.chatGptTier),
+    providerLabel: guideProviderLabel(provider, config.model, config.chatGptSelection),
     setShowConfig,
     saveConfig,
     saveLanguage,

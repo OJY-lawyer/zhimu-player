@@ -1,24 +1,56 @@
-import type { ChatGptTier, GuideProvider } from './contracts'
+import type { ChatGptWebModelOption, ChatGptWebSelection, GuideProvider } from './contracts'
 
 export const DEFAULT_GUIDE_PROVIDER: GuideProvider = 'chatgpt-web'
-export const CHATGPT_GUIDE_LABEL = 'ChatGPT · Astra · 极高'
+export const CHATGPT_GUIDE_LABEL = 'ChatGPT'
 export const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
 export const DEEPSEEK_MODEL = 'deepseek-flash'
-export function chatGptModelPolicy(tier: ChatGptTier) {
-  return { model: 'gpt[- ]?6.*astra|astra', effort: tier === 'pro' ? '^pro$|^专业$' : '^xhigh$|^extra[ -]?high$|^极高$' }
+// Chat presets are candidates only; each model and level must be checked on the website.
+export const CHATGPT_WEB_PRESETS: readonly ChatGptWebModelOption[] = [
+  { model: 'GPT-5.6 Sol', reasoningOptions: ['Instant', 'Medium', 'High', 'Extra High', 'Pro'] },
+  { model: 'GPT-6 Astra', reasoningOptions: ['Pro'] },
+]
+
+export function normalizeChatGptSelection(value: unknown): ChatGptWebSelection | null {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as Record<string, unknown>
+  const validLabel = (label: unknown): label is string => typeof label === 'string' && !!label.trim()
+    && label.length <= 120 && !/[\u0000-\u001f\u007f]/.test(label)
+  if (!validLabel(candidate.model) || (candidate.reasoning !== null && !validLabel(candidate.reasoning))) return null
+  const model = candidate.model.trim()
+  const reasoning = candidate.reasoning === null ? null : candidate.reasoning.trim()
+  // rc.9 briefly stored Astra's Pro level as a separate model with no level.
+  // Only that exact representation is an alias; preserve other explicit labels.
+  return model === 'GPT-6 Pro' && reasoning === null
+    ? { model: 'GPT-6 Astra', reasoning: 'Pro' }
+    : { model, reasoning }
 }
-export function chatGptTarget(tier: ChatGptTier = 'plus') {
-  return tier === 'pro'
-    ? { model: 'GPT-6 Astra', effort: 'Pro', label: 'ChatGPT · Astra · Pro' }
-    : { model: 'GPT-6 Astra', effort: '极高', label: CHATGPT_GUIDE_LABEL }
+
+export function chatGptModelPolicy(selection: ChatGptWebSelection) {
+  const selected = normalizeChatGptSelection(selection) || selection
+  const exact = (label: string) => '^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+') + '$'
+  return { model: exact(selected.model), effort: selected.reasoning === null ? null : exact(selected.reasoning) }
+}
+
+export function chatGptTarget(selection?: ChatGptWebSelection | null) {
+  const selected = normalizeChatGptSelection(selection)
+  return selected
+    ? { model: selected.model, effort: selected.reasoning, label: [CHATGPT_GUIDE_LABEL, selected.model, selected.reasoning].filter(Boolean).join(' · ') }
+    : { model: '', effort: null, label: CHATGPT_GUIDE_LABEL }
+}
+
+/** Keep the chosen website labels in new filenames without allowing path separators. */
+export function chatGptGuideVersionLabel(selection: ChatGptWebSelection): string {
+  const selected = normalizeChatGptSelection(selection) || selection
+  const safe = (label: string) => label.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/\s+/g, '-').replace(/[. ]+$/g, '').slice(0, 80)
+  return 'Guide.ChatGPT-' + [selected.model, selected.reasoning].filter((value): value is string => value !== null).map(safe).join('-')
 }
 
 export function normalizeGuideProvider(provider: unknown): GuideProvider {
   return provider === 'compatible-api' ? 'compatible-api' : DEFAULT_GUIDE_PROVIDER
 }
 
-export function guideProviderLabel(provider: GuideProvider, fallbackModel = '', tier: ChatGptTier = 'plus'): string {
-  if (provider === 'chatgpt-web') return chatGptTarget(tier).label
+export function guideProviderLabel(provider: GuideProvider, fallbackModel = '', selection?: ChatGptWebSelection | null): string {
+  if (provider === 'chatgpt-web') return chatGptTarget(selection).label
   return fallbackModel.trim() ? 'API · ' + fallbackModel.trim() : 'DeepSeek API'
 }
 

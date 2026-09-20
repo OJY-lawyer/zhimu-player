@@ -1,7 +1,7 @@
-import { BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
-import { promises as fs } from 'fs'
+import { BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { createReadStream, promises as fs } from 'fs'
 import * as path from 'path'
-import { pathToFileURL } from 'url'
+import { Readable } from 'node:stream'
 import { nativeText } from './locale'
 import {
   VIDEO_EXTENSIONS,
@@ -34,10 +34,50 @@ function toMediaFile(filePath: string): MediaFile {
 }
 
 export function registerMediaProtocol(): void {
-  protocol.handle(MEDIA_SCHEME, (request) => {
-    const requestUrl = new URL(request.url)
-    const filePath = decodeURIComponent(requestUrl.pathname.slice(1))
-    return net.fetch(pathToFileURL(filePath).href, { headers: request.headers })
+  protocol.handle(MEDIA_SCHEME, async (request) => {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } })
+    let filePath: string
+    try {
+      const url = new URL(request.url)
+      filePath = decodeURIComponent(url.pathname.slice(1))
+      if (url.hostname !== 'file' || !path.isAbsolute(filePath) || !isVideoFile(filePath)) return new Response(null, { status: 400 })
+    } catch { return new Response(null, { status: 400 }) }
+    let size: number
+    try {
+      const stat = await fs.stat(filePath)
+      if (!stat.isFile()) return new Response(null, { status: 404 })
+      size = stat.size
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      return new Response(null, { status: code === 'EACCES' || code === 'EPERM' ? 403 : 404 })
+    }
+    const mime: Record<string, string> = { mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska', avi: 'video/x-msvideo', ts: 'video/mp2t' }
+    const headers = new Headers({ 'Accept-Ranges': 'bytes', 'Content-Type': mime[path.extname(filePath).slice(1).toLowerCase()] || 'application/octet-stream' })
+    let start = 0, end = size - 1, status = 200
+    const range = request.headers.get('range')
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/i.exec(range.trim())
+      const first = match?.[1] ? Number(match[1]) : null
+      const last = match?.[2] ? Number(match[2]) : null
+      if (!match || first === null && last === null || size === 0
+        || first !== null && (!Number.isSafeInteger(first) || first >= size)
+        || last !== null && !Number.isSafeInteger(last)
+        || first === null && (last === null || last <= 0)
+        || first !== null && last !== null && last < first) {
+        headers.set('Content-Range', `bytes */${size}`)
+        return new Response(null, { status: 416, headers })
+      }
+      start = first === null ? Math.max(0, size - last!) : first
+      end = first === null || last === null ? size - 1 : Math.min(last, size - 1)
+      status = 206
+      headers.set('Content-Range', `bytes ${start}-${end}/${size}`)
+    }
+    headers.set('Content-Length', String(size === 0 ? 0 : end - start + 1))
+    // net.fetch(file:) forwards the byte slice but drops its HTTP range metadata. Chromium then
+    // treats a partially buffered file as unseekable. Serve a bounded stream with explicit ranges.
+    if (request.method === 'HEAD' || size === 0) return new Response(null, { status, headers })
+    const stream = createReadStream(filePath, { start, end, signal: request.signal })
+    return new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>, { status, headers })
   })
 }
 

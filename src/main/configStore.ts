@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AIConfig, Preset } from '../shared/contracts'
-import { DEEPSEEK_MODEL, DEEPSEEK_URL } from '../shared/guideGeneration'
+import { DEEPSEEK_MODEL, DEEPSEEK_URL, normalizeChatGptSelection } from '../shared/guideGeneration'
 import { normalizeGuideLanguage, type GuideLanguage } from '../shared/language'
 
 type Stored = Record<string, unknown> & { apiKey?: string; apiKeyEncrypted?: string }
@@ -41,8 +41,12 @@ export function loadConfig(secret = false): AIConfig | null {
   const migrated = {
     baseUrl: DEEPSEEK_URL, model: DEEPSEEK_MODEL,
     ...expose(stored),
-    // Preserve the old explicitly Pro workflow when opening an existing installation.
-    chatGptTier: raw.chatGptTier || 'pro',
+    // Old Pro settings targeted Astra Pro. An explicit selection (including a cleared
+    // or invalid selection) takes precedence; the legacy field never overrides it.
+    chatGptTier: raw.chatGptTier === 'plus' || raw.chatGptTier === 'pro' ? raw.chatGptTier : undefined,
+    chatGptSelection: !Object.prototype.hasOwnProperty.call(raw, 'chatGptSelection') && raw.chatGptTier === 'pro'
+      ? { model: 'GPT-6 Astra', reasoning: 'Pro' }
+      : normalizeChatGptSelection(raw.chatGptSelection),
     chatGptProject: raw.chatGptProject ?? '视频总结对话专用项目',
     guideLanguage: normalizeGuideLanguage(raw.guideLanguage),
     asrLanguage: raw.asrLanguage === 'en' ? 'en' : 'cn',
@@ -52,15 +56,16 @@ export function loadConfig(secret = false): AIConfig | null {
 export function saveGuideLanguage(language: GuideLanguage): void {
   if (!['zh-CN', 'en', 'source'].includes(language)) throw new Error('Unsupported guide language')
   const existing = read('config.json') as Stored | null
-  const defaults = { provider: 'chatgpt-web', baseUrl: DEEPSEEK_URL, model: DEEPSEEK_MODEL, chatGptTier: 'plus', chatGptProject: '' }
+  const defaults = { provider: 'chatgpt-web', baseUrl: DEEPSEEK_URL, model: DEEPSEEK_MODEL, chatGptSelection: null, chatGptProject: '' }
   write('config.json', { ...(existing || defaults), guideLanguage: language })
 }
 export function saveConfig(config: AIConfig): string {
+  if (config.chatGptSelection != null && !normalizeChatGptSelection(config.chatGptSelection)) throw new Error('Invalid ChatGPT model selection')
   const existing = read('config.json') as Stored | null
   let sameOrigin = false
   try { sameOrigin = !!existing && new URL(String(existing.baseUrl)).origin === new URL(config.baseUrl).origin } catch { /* A changed or invalid destination never inherits a secret. */ }
   const key = config.clearApiKey ? '' : config.apiKey.trim() || (existing && sameOrigin ? decrypt(existing) : '')
-  write('config.json', encrypt(config as unknown as Stored, key))
+  write('config.json', encrypt({ ...config, chatGptSelection: normalizeChatGptSelection(config.chatGptSelection) } as unknown as Stored, key))
   return location('config.json')
 }
 /** Resolve a settings draft inside the main process without saving or exposing its secret. */

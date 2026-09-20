@@ -15,6 +15,7 @@ const failures: string[] = []
 function makeHost(directory: string, options: {
   preparationFailure?: 'mkdtemp' | 'writeFile'
   immediateTimers?: boolean
+  advanceClock?: boolean
 } = {}) {
   const handlers = new Map<string, (...args: any[]) => any>()
   const appHandlers = new Map<string, () => void>()
@@ -25,6 +26,8 @@ function makeHost(directory: string, options: {
   let decrypted = 0
   let encryptionAvailable = true
   let nextTimer = 1
+  let now = Date.now()
+  class FixtureDate extends Date { static now() { return now } }
   let fetcher: (...args: any[]) => Promise<any> = async () => { throw new Error('unexpected network attempt') }
   const safeStorage = {
     isEncryptionAvailable: () => encryptionAvailable,
@@ -66,12 +69,12 @@ function makeHost(directory: string, options: {
     clipboard: { readText: () => '', clear() {} },
   }
   const context = vm.createContext({
-    console, Buffer, URL, AbortController, DOMException, process,
+    console, Buffer, URL, AbortController, DOMException, process, Date: options.advanceClock ? FixtureDate : Date,
     fetch: (...args: any[]) => fetcher(...args),
     setTimeout: (callback: () => void, ms: number) => {
       const id = nextTimer++
       timers.set(id, { callback, ms })
-      if (options.immediateTimers) queueMicrotask(() => { if (timers.delete(id)) callback() })
+      if (options.immediateTimers) queueMicrotask(() => { if (timers.delete(id)) { if (options.advanceClock) now += ms; callback() } })
       return id
     },
     clearTimeout: (id: number) => { timers.delete(id) },
@@ -84,7 +87,7 @@ function makeHost(directory: string, options: {
     const module = { exports: {} as any }
     cache.set(file, module)
     let source = fs.readFileSync(file, 'utf8')
-    if (file.endsWith('chatgptEdgeWorker.ts')) source += '\nexport { waitForGuideAnswer as __testWaitForGuideAnswer };\n'
+    if (file.endsWith('chatgptEdgeWorker.ts')) source += '\nexport { waitForGuideAnswer as __testWaitForGuideAnswer, submitGuideTask as __testSubmitGuideTask };\nexport function __testSubmitted() { return submitted };\n'
     const compiled = transformSync(source, { loader: 'ts', format: 'cjs', target: 'node22', sourcefile: file }).code
     const localRequire = (name: string): any => {
       if (name === 'electron') return electron
@@ -123,6 +126,74 @@ async function runCase(name: string, callback: (directory: string) => Promise<vo
     assert.ok(path.basename(directory).startsWith('provider-security-'))
     await fs.promises.rm(directory, { recursive: true, force: true })
   }
+}
+
+/** Execute the real composer and submit expressions against a stateful page, not canned matches flags. */
+function submissionPage(worker: any, mode: 'draft' | 'first-line' | 'missing-tail' | 'complete' | 'changed-before-send', prompt: string) {
+  const state = { text: mode === 'draft' ? 'existing synthetic user draft' : '', pasteCount: 0, sendCount: 0, evaluations: 0, readinessChecked: false }
+  const location = { origin: 'https://chatgpt.com', pathname: '/' }
+  class DataTransfer {
+    private text = ''
+    setData(type: string, value: string) { assert.equal(type, 'text/plain'); this.text = value }
+    getData(type: string) { return type === 'text/plain' ? this.text : '' }
+  }
+  class PageEvent {
+    readonly clipboardData?: DataTransfer
+    constructor(readonly type: string, options: object) { Object.assign(this, options) }
+  }
+  class PageElement {
+    nodeType = 1
+    nodeValue = null
+    parentNode = null
+    classList = { contains: () => false }
+    constructor(readonly tagName: string, readonly isContentEditable: boolean) {}
+    get innerText() { return this.isContentEditable ? state.text : 'Send' }
+    get textContent() { return this.innerText }
+    get childNodes() { return this.isContentEditable && state.text ? [{ nodeType: 3, nodeValue: state.text }] : [] }
+    closest() { return null }
+    getBoundingClientRect() { return { width: 400, height: 100 } }
+    getAttribute(name: string) { return name === 'aria-label' ? 'Send' : null }
+    hasAttribute() { return false }
+    focus() {}
+    dispatchEvent(event: PageEvent) {
+      assert.equal(event.type, 'paste')
+      assert.equal(worker.__testSubmitted(), false, 'paste must not mark the task submitted')
+      state.pasteCount++
+      const text = event.clipboardData!.getData('text/plain')
+      assert.equal(text, prompt, 'the paste event carries the complete multiline task')
+      state.text = mode === 'first-line' ? text.split('\n')[0] : mode === 'missing-tail' ? text.slice(0, -20) : text
+      return false
+    }
+    click() {
+      assert.equal(worker.__testSubmitted(), true, 'submitted must become true before the actual send click')
+      assert.equal(state.text, prompt, 'sending incomplete or changed text is forbidden')
+      state.sendCount++
+      location.pathname = '/c/fixture-submitted-conversation'
+    }
+  }
+  const editor = new PageElement('DIV', true), button = new PageElement('BUTTON', false)
+  const page = vm.createContext({
+    HTMLElement: PageElement, HTMLTextAreaElement: class {}, DataTransfer, ClipboardEvent: PageEvent, InputEvent: PageEvent, location,
+    getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity: '1' }),
+    document: {
+      querySelectorAll(selector: string) {
+        if (selector === '#prompt-textarea') return [editor]
+        assert.equal(selector, 'button'); return [button]
+      },
+      querySelector(selector: string) {
+        assert.equal(selector, '[data-testid="send-button"]')
+        if (mode === 'changed-before-send' && !state.readinessChecked) state.text = 'user changed the draft while send was becoming ready'
+        state.readinessChecked = true
+        return button
+      },
+    },
+  })
+  return { state, cdp: { send: async (method: string, parameters: { expression: string }, sessionId: string) => {
+    assert.equal(method, 'Runtime.evaluate', 'no unchecked Input.insertText fallback')
+    assert.equal(sessionId, 'fixture-page-session')
+    assert(++state.evaluations < 40, 'polling must use the virtual deadline, not a real 5-second wait')
+    return { result: { value: await vm.runInContext(parameters.expression, page) } }
+  } } }
 }
 
 async function main(): Promise<void> {
@@ -276,6 +347,28 @@ async function main(): Promise<void> {
     })
   }
 
+  for (const mode of ['draft', 'first-line', 'missing-tail', 'complete', 'changed-before-send'] as const) {
+    await runCase(`ChatGPT submit validates the entire multiline composer: ${mode}`, async directory => {
+      const host = makeHost(directory, { immediateTimers: true, advanceClock: true })
+      const worker = host.load('src/main/chatgptEdgeWorker.ts')
+      const prompt = 'Please generate the reading guide from the complete task below.\n\n# Synthetic task\n[P1-00:00:02] First complete subtitle.\n[P1-00:00:08] Final subtitle must remain intact.'
+      const { state, cdp } = submissionPage(worker, mode, prompt)
+      assert.equal(worker.__testSubmitted(), false)
+      if (mode === 'complete') {
+        assert.equal(await worker.__testSubmitGuideTask(cdp, 'fixture-page-session', prompt), 'fixture-submitted-conversation')
+        assert.equal(state.pasteCount, 1); assert.equal(state.sendCount, 1)
+        assert.equal(worker.__testSubmitted(), true)
+      } else {
+        await assert.rejects(worker.__testSubmitGuideTask(cdp, 'fixture-page-session', prompt), mode === 'draft' ? /已有内容/ : /未完整写入/)
+        assert.equal(state.sendCount, 0)
+        assert.equal(worker.__testSubmitted(), false, 'failure before the send click must remain unsubmitted')
+        assert.equal(state.pasteCount, mode === 'draft' ? 0 : 1)
+        if (mode === 'draft') assert.equal(state.text, 'existing synthetic user draft')
+      }
+      assert.equal(host.timers.size, 0)
+    })
+  }
+
   await runCase('ChatGPT actual recovery script requires finished status and end_turn on the active branch', async directory => {
     const host = makeHost(directory, { immediateTimers: true })
     const { __testWaitForGuideAnswer } = host.load('src/main/chatgptEdgeWorker.ts')
@@ -293,6 +386,7 @@ async function main(): Promise<void> {
       assert.ok(++evaluations <= 20, 'completion polling exceeded the bounded fixture sequence')
       assert.equal(method, 'Runtime.evaluate')
       const page = vm.createContext({
+        AbortController, setTimeout, clearTimeout, location: { origin: 'https://chatgpt.com', pathname: '/c/fixture-conversation' },
         fetch: async (url: string) => {
           if (url.includes('/api/auth/session')) return { ok: true, json: async () => ({ accessToken: 'fixture-session-token' }) }
           assert.ok(url.includes('/backend-api/conversation/'))
@@ -300,7 +394,7 @@ async function main(): Promise<void> {
           const sample = samples[reads++]
           return { ok: true, json: async () => ({ current_node: 'current', mapping: {
             current: { id: 'current', parent: null, message: { author: { role: 'assistant' }, status: sample.status,
-              end_turn: sample.end_turn, channel: sample.channel, metadata: { is_visually_hidden_from_conversation: sample.hidden },
+              end_turn: sample.end_turn, channel: sample.channel, metadata: { is_visually_hidden_from_conversation: sample.hidden, model_slug: 'gpt-5.6', reasoning_effort: 'medium' },
               create_time: reads, content: { parts: [sample.text] } } },
             abandoned: { id: 'abandoned', parent: null, message: { author: { role: 'assistant' },
               status: 'finished_successfully', end_turn: true, channel: 'final', create_time: 999,
@@ -312,15 +406,87 @@ async function main(): Promise<void> {
       assert.ok(!JSON.stringify(value).includes('fixture-session-token'), 'session token must remain inside the browser context')
       return { result: { value } }
     } }
-    assert.equal(await __testWaitForGuideAnswer(cdp, 'fixture-session', 'fixture-conversation', null), 'complete guide')
+    assert.equal(await __testWaitForGuideAnswer(cdp, 'fixture-session', 'fixture-conversation', null, { model: 'GPT-5.6 Sol', reasoning: 'Medium' }), 'complete guide')
     assert.equal(reads, samples.length)
+  })
+
+  await runCase('ChatGPT follows the optimistic conversation ID until the server has saved it', async directory => {
+    const host = makeHost(directory, { immediateTimers: true })
+    const { __testWaitForGuideAnswer } = host.load('src/main/chatgptEdgeWorker.ts')
+    let pathname = '/c/local-draft-id'
+    const requested: string[] = []
+    const cdp = { send: async (_method: string, parameters: { expression: string }) => {
+      const page = vm.createContext({ AbortController, setTimeout, clearTimeout,
+        location: { origin: 'https://chatgpt.com', pathname },
+        fetch: async (url: string) => {
+          if (url === '/api/auth/session') return { ok: true, status: 200, json: async () => ({ accessToken: 'fixture-token' }) }
+          requested.push(url)
+          if (url.endsWith('/local-draft-id')) { pathname = '/c/saved-conversation-id'; return { ok: false, status: 400 } }
+          assert.equal(url, '/backend-api/conversation/saved-conversation-id')
+          return { ok: true, status: 200, json: async () => ({ current_node: 'reply', mapping: {
+            reply: { id: 'reply', message: { author: { role: 'assistant' }, channel: 'final', status: 'finished_successfully', end_turn: true,
+              metadata: { model_slug: 'gpt-5.6-sol', reasoning_effort: 'medium' }, content: { parts: ['saved reply'] } } },
+          } }) }
+        },
+      })
+      return { result: { value: await vm.runInContext(parameters.expression, page) } }
+    } }
+    assert.equal(await __testWaitForGuideAnswer(cdp, 'fixture-session', 'local-draft-id', null, { model: 'GPT-5.6 Sol', reasoning: 'Medium' }), 'saved reply')
+    assert.deepEqual(requested, ['/backend-api/conversation/local-draft-id', '/backend-api/conversation/saved-conversation-id'])
+  })
+
+  await runCase('ChatGPT access refusal stops reply polling without another submission', async directory => {
+    const host = makeHost(directory, { immediateTimers: true })
+    const { __testWaitForGuideAnswer } = host.load('src/main/chatgptEdgeWorker.ts')
+    let requests = 0
+    const cdp = { send: async (_method: string, parameters: { expression: string }) => {
+      const page = vm.createContext({ AbortController, setTimeout, clearTimeout,
+        location: { origin: 'https://chatgpt.com', pathname: '/c/saved-conversation-id' },
+        fetch: async () => { requests++; return { ok: false, status: 403 } },
+      })
+      return { result: { value: await vm.runInContext(parameters.expression, page) } }
+    } }
+    await assert.rejects(__testWaitForGuideAnswer(cdp, 'fixture-session', 'saved-conversation-id', null, { model: 'GPT-5.6 Sol', reasoning: 'Medium' }), /403/)
+    assert.equal(requests, 1)
+  })
+
+  await runCase('ChatGPT stops reading when a loaded conversation is replaced in the page', async directory => {
+    const host = makeHost(directory, { immediateTimers: true, advanceClock: true })
+    const { __testWaitForGuideAnswer } = host.load('src/main/chatgptEdgeWorker.ts')
+    let pathname = '/c/original-conversation'
+    const requested: string[] = []
+    let evaluations = 0
+    const cdp = { send: async (method: string, parameters: { expression: string }, sessionId: string) => {
+      assert.equal(method, 'Runtime.evaluate'); assert.equal(sessionId, 'fixture-page-session')
+      assert(++evaluations <= 2, 'a changed page must stop at the next poll')
+      const page = vm.createContext({ AbortController, setTimeout, clearTimeout,
+        location: { origin: 'https://chatgpt.com', pathname },
+        fetch: async (url: string) => {
+          requested.push(url)
+          if (url === '/api/auth/session') return { ok: true, status: 200, json: async () => ({ accessToken: 'fixture-only-token' }) }
+          assert.equal(url, '/backend-api/conversation/original-conversation', 'never fetch the newly opened conversation')
+          return { ok: true, status: 200, json: async () => ({ current_node: 'pending', mapping: {
+            pending: { id: 'pending', message: { author: { role: 'assistant' }, channel: 'final', status: 'in_progress', end_turn: false,
+              metadata: { model_slug: 'gpt-5.6-sol', reasoning_effort: 'medium' }, content: { parts: ['still generating'] } } },
+          } }) }
+        },
+      })
+      const value = await vm.runInContext(parameters.expression, page)
+      if (evaluations === 1) { assert.equal(value.loaded, true); pathname = '/c/other-user-conversation' }
+      assert(!JSON.stringify(value).includes('fixture-only-token'))
+      return { result: { value } }
+    } }
+    await assert.rejects(__testWaitForGuideAnswer(cdp, 'fixture-page-session', 'original-conversation', null,
+      { model: 'GPT-5.6 Sol', reasoning: 'Medium' }), /切换到了其他对话/)
+    assert.equal(evaluations, 2)
+    assert.deepEqual(requested, ['/api/auth/session', '/backend-api/conversation/original-conversation'], 'second poll stops before any auth or conversation fetch')
   })
 
   for (const preparationFailure of ['mkdtemp', 'writeFile'] as const) {
     await runCase(`ChatGPT ${preparationFailure} failure resets busy state and cleans created task directory`, async directory => {
       const host = makeHost(directory, { preparationFailure })
       host.load('src/main/chatgptEdgeWorker.ts').registerChatGptEdgeWorker(() => null)
-      const result = await host.handlers.get('chatgpt-generate-guide')!({}, { taskMarkdown: 'fixture subtitles', playlistName: 'fixture' })
+      const result = await host.handlers.get('chatgpt-generate-guide')!({}, { taskMarkdown: 'fixture subtitles', playlistName: 'fixture', selection: { model: 'GPT-5.6 Sol', reasoning: 'Medium' } })
       assert.equal(result.success, false)
       assert.equal(await host.handlers.get('chatgpt-cancel-guide')!(), false, 'preparation failure must release generationBusy')
       if (preparationFailure === 'writeFile') assert.equal(host.removed.length, 1, 'failed write removes its allocated task directory')
