@@ -61,9 +61,17 @@ html[lang='en'] .drawer-tab-count {
   font-size: 11px;
 }
 
-html[lang='en'] .right-drawer.is-compact .drawer-tab svg,
-html[lang='en'] .right-drawer.is-compact .drawer-tab-count {
+.right-drawer.is-compact .drawer-tab svg,
+.right-drawer.is-compact .drawer-tab-count {
   display: none;
+}
+
+.right-drawer.is-compact .guide-toolbar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.right-drawer.is-compact .guide-toolbar .panel-toolbar-actions {
+  justify-content: flex-end;
 }
 
 html[lang='en'] .playlist-item-meta {

@@ -81,7 +81,7 @@ function GuideDocument({ content, onNavigate, partMap }: Pick<GuidePanelProps, '
   return (
     <article className="guide-document">
       {content.split(/\r?\n/).map((line, index) => {
-        if (!line.trim()) return <div className="guide-spacer" key={index} />
+        if (!line.trim()) return null
         const heading = line.match(/^(#{1,3})\s+(.+)$/)
         if (heading) {
           const children = renderTextWithTimestamps(heading[2], index, onNavigate, partMap)

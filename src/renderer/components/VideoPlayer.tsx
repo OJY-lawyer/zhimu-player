@@ -39,9 +39,9 @@ interface VideoPlayerProps {
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-function isEditableTarget(target: EventTarget | null) {
+function isInteractiveTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
-  return target.matches('input, textarea, select, [contenteditable="true"]')
+  return Boolean(target.closest('input, textarea, select, button, a[href], [contenteditable="true"], [role="tab"], [role="slider"], [role="menuitem"], [role="radio"]'))
 }
 
 export function VideoPlayer({
@@ -86,6 +86,7 @@ export function VideoPlayer({
   const singleClickTimerRef = useRef<number | null>(null)
   const continuePlaybackRef = useRef(false)
   const stageRef = useRef<HTMLElement | null>(null)
+  const controlsRef = useRef<HTMLDivElement | null>(null)
 
   const subtitles = item?.subtitles || []
   const subtitleOffset = item?.subtitleOffset || 0
@@ -106,7 +107,8 @@ export function VideoPlayer({
   const wakeControls = useCallback(() => {
     clearControlsTimer()
     setControlsVisible(true)
-    if (video.isPlaying && !showSubtitleSettings && !isScrubbing) {
+    const engaged = controlsRef.current?.matches(':hover') || controlsRef.current?.querySelector(':focus-visible')
+    if (video.isPlaying && !showSubtitleSettings && !isScrubbing && !engaged) {
       controlsTimerRef.current = window.setTimeout(() => setControlsVisible(false), 2000)
     }
   }, [clearControlsTimer, isScrubbing, showSubtitleSettings, video.isPlaying])
@@ -119,6 +121,17 @@ export function VideoPlayer({
   useEffect(() => {
     setMediaError(null)
     setProgressPreview(null)
+  }, [item?.id])
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    const stage = stageRef.current
+    if (!controls || !stage) return
+    const updateClearance = () => stage.style.setProperty('--player-controls-height', controls.offsetHeight + 'px')
+    updateClearance()
+    const observer = new ResizeObserver(updateClearance)
+    observer.observe(controls)
+    return () => observer.disconnect()
   }, [item?.id])
 
   useEffect(() => {
@@ -173,12 +186,26 @@ export function VideoPlayer({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Settings, search and native controls own their keys; never seek or play behind them.
+      if (event.defaultPrevented || searchOpen) return
+      if (event.key === 'Escape' && showSubtitleSettings) {
+        event.preventDefault()
+        setShowSubtitleSettings(false)
+        wakeControls()
+        return
+      }
+      if (event.key === 'Escape' && isFullscreen
+        && !(event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]'))) {
+        event.preventDefault()
+        onExitFullscreen()
+        return
+      }
       if (event.ctrlKey && event.key.toLocaleLowerCase() === 'f') {
         event.preventDefault()
         onOpenSearch()
         return
       }
-      if (isEditableTarget(event.target)) return
+      if (isInteractiveTarget(event.target)) return
 
       const key = event.key.toLocaleLowerCase()
       if (event.code === 'Space') {
@@ -200,9 +227,6 @@ export function VideoPlayer({
       } else if (key === 's') {
         event.preventDefault()
         onSubtitleStyleChange({ ...subtitleStyle, visible: !subtitleStyle.visible })
-      } else if (event.key === 'Escape' && isFullscreen && !searchOpen) {
-        event.preventDefault()
-        onExitFullscreen()
       }
       wakeControls()
     }
@@ -217,6 +241,7 @@ export function VideoPlayer({
     onSubtitleStyleChange,
     onToggleFullscreen,
     subtitleStyle,
+    showSubtitleSettings,
     toggleMute,
     video,
     wakeControls,
@@ -356,10 +381,10 @@ export function VideoPlayer({
             <div
               className="subtitle-overlay"
               style={{
-                bottom: subtitleStyle.verticalPosition + '%',
+                '--subtitle-position': subtitleStyle.verticalPosition + '%',
                 fontSize: subtitleStyle.size + 'px',
                 backgroundColor: 'rgba(12, 10, 9, ' + subtitleStyle.backgroundOpacity + ')',
-              }}
+              } as React.CSSProperties}
             >
               {currentSubtitle.text}
             </div>
@@ -380,7 +405,8 @@ export function VideoPlayer({
           )}
 
           <div className="player-control-scrim" aria-hidden="true" />
-          <div className="player-controls" onMouseEnter={wakeControls}>
+          <div className="player-controls" ref={controlsRef} onMouseEnter={wakeControls} onMouseLeave={wakeControls}
+            onFocusCapture={() => { clearControlsTimer(); setControlsVisible(true) }} onBlurCapture={wakeControls}>
             <div className="progress-wrap">
               {progressPreview && (
                 <div

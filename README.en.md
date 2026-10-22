@@ -12,6 +12,12 @@ One application includes both **ChatGPT web** (the default) and **DeepSeek API**
 
 Watch with subtitles and switch the right panel between the playlist, subtitles and reading guide. Example video: 热爱干饭饭 on bilibili. The interface also supports English, as shown below.
 
+## Latest source changes · 2026-10-22
+
+`main` includes interface refinements: captions clear playback controls in compact windows, sidebar labels stay on one line, and connection states are easier to read. Tingwu has a separate **Check connection** button, and model and reasoning selectors remain fully visible in compact Settings. Arrow keys switch sidebar tabs, while buttons and Settings no longer trigger background playback shortcuts.
+
+This is a source update. The downloadable installers remain rc.10 and do not yet include these refinements. Model choices, sign-in data and media retain their existing behavior.
+
 ## Release candidate: 1.2.0-rc.10
 
 **This is a release candidate for users to try, not a stable release.** rc.10 fixes Cookie import rollback, incomplete multiline prompts and response retrieval in new chats. Import cookies from a file, the clipboard or pasted JSON using the visible connection buttons. Model and reasoning choices are separate, including Sol Pro and Astra Pro when available in the website menu. Sidebar subtitles stay highlighted through gaps and pauses.
@@ -24,7 +30,7 @@ Choose a file under **Assets** on the [v1.2.0-rc.10 download page](https://githu
 |---|---|
 | `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe` | Windows x64 installer for the current user |
 | `Zhimu-Player-1.2.0-rc.10-Portable-x64.exe` | Windows x64 portable application |
-| `Zhimu-Player-1.2.0-rc.10-Source.zip` | Clean source archive with a manifest and SHA-256 checksum |
+| `Zhimu-Player-1.2.0-rc.10-Source.zip` | Clean source archive with a file manifest |
 | `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe.blockmap`, `latest.yml` | Installed-edition update assets; no need to open these manually |
 
 Previously named AI Video Player, **Zhimu Player · 知幕** continues its existing features and data formats. The [rc.8 notes](./docs/RELEASE-1.2.0-rc.8.md) remain a historical record. These builds are unsigned, so Windows may show an unknown publisher; check the download source. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with the version, reproduction steps and error text. Do not include account details, cookies, API keys or private media.
@@ -149,7 +155,7 @@ A temporary network failure may show a clearly marked list cached during the cur
 | Video or audio will not play | A supported filename extension does not guarantee a supported codec. Use a file encoded in a Chromium-compatible format |
 | English interface still shows Chinese subtitles or an older guide | Interface changes preserve user content. Select English guide output and generate a new version if needed |
 | An error includes “Additional details” and Chinese text | The player is preserving an unmapped service detail for diagnosis, not reporting success |
-| Windows shows an unknown publisher | Current builds are unsigned. Check the download source and published SHA-256 before deciding whether to run them |
+| Windows shows an unknown publisher | Current builds are unsigned. Check the official download source and the release version before deciding whether to run them |
 
 The file picker accepts MP4, MKV, AVI, WebM, MOV, M4V and TS. Playback still depends on their internal codecs. The player does not automatically transcode or modify the original video. The built-in Tingwu upload flow does not accept TS; convert it to MP4 first.
 
@@ -175,7 +181,7 @@ For a fresh source checkout, `setup:runtime` uses Electron's own installer to pr
 - `npm run build:dir` creates an unpacked build for inspection.
 - `npm run build` produces the current-user installer and portable edition in `release/`; it does not publish them.
 - `npm run test:playback` exercises real playback, subtitle/progress seeking and volume controls with isolated data and silent synthetic media. Add `-- --slow-media` to test before the file has fully loaded.
-- `npm run public:check` scans the public file allowlist. `npm run public:export -- --output outputs` exports a clean source ZIP with a file manifest and SHA-256 checksum.
+- `npm run public:check` scans the public file allowlist. `npm run public:export -- --output outputs` exports a clean source ZIP with a manifest of file paths and byte counts.
 
 The source project folder is now named `zhimu-player`. To preserve upgrade data, the internal application ID remains `com.videoplayer.app`, the user-data folder remains `video-player`, and existing localStorage keys and `ai-video-player-guide:` guide markers remain compatible. These are internal data identifiers and must not be renamed by a blanket replacement. Users do not need to move sign-in sessions or media manually because of the product rename.
 

@@ -11,7 +11,7 @@
   --line-strong: rgba(236, 218, 199, 0.22);
   --text: #f2ebe3;
   --text-soft: #c6b9ad;
-  --text-muted: #8f8379;
+  --text-muted: #a3978c;
   --accent: #c96f4a;
   --accent-bright: #df8058;
   --accent-soft: rgba(201, 111, 74, 0.16);
@@ -42,6 +42,22 @@ body {
   background: var(--bg);
   color: var(--text);
   user-select: none;
+}
+
+::selection {
+  background: #684330;
+  color: var(--text);
+}
+
+input,
+textarea {
+  caret-color: var(--accent-bright);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 button,
@@ -366,7 +382,9 @@ button:disabled {
 .subtitle-overlay {
   position: absolute;
   left: 50%;
+  bottom: var(--subtitle-position, 15%);
   z-index: 8;
+  width: max-content;
   max-width: min(82%, 1100px);
   padding: 7px 14px 8px;
   transform: translateX(-50%);
@@ -374,10 +392,16 @@ button:disabled {
   color: #fffaf5;
   font-weight: 550;
   line-height: 1.48;
+  white-space: pre-line;
+  overflow-wrap: break-word;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   user-select: text;
   pointer-events: none;
+}
+
+.video-stage.controls-visible .subtitle-overlay {
+  bottom: max(var(--subtitle-position, 15%), calc(var(--player-controls-height, 70px) + 26px));
 }
 
 .player-control-scrim {
@@ -886,16 +910,29 @@ button:disabled {
 .drawer-tab {
   position: relative;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border: 0;
   background: transparent;
   color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
+}
+
+.drawer-tab-label {
+  white-space: nowrap;
+}
+
+.drawer-tab svg,
+.drawer-tab-count {
+  flex-shrink: 0;
+}
+
+.drawer-tab:focus-visible {
+  outline-offset: -4px;
 }
 
 .drawer-tab::after {
@@ -1609,10 +1646,6 @@ button:disabled {
 
 .guide-document p {
   margin: 6px 0;
-}
-
-.guide-spacer {
-  height: 7px;
 }
 
 .guide-bullet {

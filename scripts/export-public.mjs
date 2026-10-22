@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createHash } from 'node:crypto'
 import { collectPublicFiles, scanPublicFiles } from './public-files.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -28,7 +27,7 @@ const records = []
 const entries = []
 for (const relative of files) {
   const data = await readFile(path.join(root, relative))
-  records.push({ path: relative, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex') })
+  records.push({ path: relative, bytes: data.length })
   entries.push({ name: prefix + relative, data })
 }
 entries.push({ name: prefix + 'SOURCE-MANIFEST.json', data: Buffer.from(JSON.stringify({ version: manifest.version, files: records }, null, 2) + '\n') })
@@ -86,5 +85,4 @@ end.writeUInt32LE(offset, 16)
 const archive = Buffer.concat([...local, central, end])
 await mkdir(output, { recursive: true })
 await writeFile(path.join(output, zipName), archive, { flag: 'wx' })
-await writeFile(path.join(output, zipName + '.sha256'), `${createHash('sha256').update(archive).digest('hex')}  ${zipName}\n`, { flag: 'wx' })
 console.log(JSON.stringify({ archive: path.join(output, zipName), files: entries.length, bytes: archive.length }))

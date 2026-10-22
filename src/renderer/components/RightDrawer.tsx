@@ -70,7 +70,17 @@ export function RightDrawer({
         />
 
         <header className="drawer-header">
-          <nav className="drawer-tabs" aria-label={t('播放器工作区', 'Player workspace')}>
+          <nav className="drawer-tabs" role="tablist" aria-label={t('播放器工作区', 'Player workspace')}
+            onKeyDown={(event) => {
+              const current = tabs.findIndex(tab => tab.id === activeTab)
+              const next = event.key === 'ArrowRight' ? (current + 1) % tabs.length
+                : event.key === 'ArrowLeft' ? (current + tabs.length - 1) % tabs.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+              if (next < 0) return
+              event.preventDefault()
+              onActiveTabChange(tabs[next].id)
+              event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+            }}>
             {tabs.map((tab) => {
               const count = tab.id === 'playlist'
                 ? playlistCount
@@ -82,12 +92,16 @@ export function RightDrawer({
                   key={tab.id}
                   className={`drawer-tab ${activeTab === tab.id ? 'is-active' : ''}`}
                   type="button"
+                  role="tab"
+                  id={`workspace-tab-${tab.id}`}
+                  aria-controls="workspace-tab-panel"
+                  tabIndex={activeTab === tab.id ? 0 : -1}
                   title={t(tab.label, tab.englishLabel) + (count === null ? '' : ` · ${count}`)}
                   aria-selected={activeTab === tab.id}
                   onClick={() => onActiveTabChange(tab.id)}
                 >
                   <Icon name={tab.icon} size={16} />
-                  <span>{t(tab.label, tab.englishLabel)}</span>
+                  <span className="drawer-tab-label">{t(tab.label, tab.englishLabel)}</span>
                   {count !== null && <span className="drawer-tab-count">{count}</span>}
                 </button>
               )
@@ -105,7 +119,7 @@ export function RightDrawer({
           </button>
         </header>
 
-        <div className="drawer-content">{children}</div>
+        <div className="drawer-content" id="workspace-tab-panel" role="tabpanel" aria-labelledby={`workspace-tab-${activeTab}`}>{children}</div>
       </aside>
     </>
   )

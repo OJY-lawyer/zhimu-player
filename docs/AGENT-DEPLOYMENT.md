@@ -161,8 +161,8 @@ npm run public:export -- --output outputs
 符号链接和异常大文件。默认不纳入 `work/`、`data/`、`state/`、`outputs/`、历史交接、
 本机安装脚本或个人配置。扫描只输出路径、规则名和计数，不输出命中内容。
 
-源码 ZIP 带 `SOURCE-MANIFEST.json`（逐文件 SHA-256）及 ZIP 的 `.sha256` 校验文件；
-为避免覆盖已有交付，同名 ZIP 已存在时会失败。公开前仍须人工检查许可、隐私和实际
+源码 ZIP 带 `SOURCE-MANIFEST.json`，记录版本、公开文件路径和各文件字节数。
+为避免覆盖已有交付，同名 ZIP 已存在时会失败。公开前按清单检查文件内容、许可、隐私和实际
 功能。只有明确获准后才创建仓库、推送或发布，CI 不自动发布发行版。
 
 公开文件必须包含 README.en.md 与 docs/LICENSE.en.md。后者是中文 LICENSE 的忠实

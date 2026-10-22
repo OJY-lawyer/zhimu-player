@@ -232,6 +232,7 @@ export function SubtitleBrowser({
             ref={index === currentIndex ? activeRef : null}
             className={'subtitle-item ' + (index === currentIndex ? 'is-active' : '')}
             type="button"
+            aria-current={index === currentIndex ? 'true' : undefined}
             onClick={() => onSeek(subtitle.startTime)}
             onContextMenu={(event) => {
               event.preventDefault()

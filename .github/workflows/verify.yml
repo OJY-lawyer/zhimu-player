@@ -27,5 +27,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: source-review
-          path: outputs/Zhimu-Player-*-Source.zip*
+          path: outputs/Zhimu-Player-*-Source.zip
           if-no-files-found: error
