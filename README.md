@@ -2,7 +2,7 @@
 
 [简体中文](./README.md) · [English](./README.en.md)
 
-[GitHub 仓库](https://github.com/OJY-lawyer/zhimu-player) · [下载 rc.10](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10) · [问题反馈](https://github.com/OJY-lawyer/zhimu-player/issues)
+[GitHub 仓库](https://github.com/OJY-lawyer/zhimu-player) · [下载 rc.11](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.11) · [问题反馈](https://github.com/OJY-lawyer/zhimu-player/issues)
 
 面向长直播、课程和多 Part 录像的 Windows 本地 AI 视频阅读工作台。播放视频、浏览字幕、生成带时间戳的内容导读，在同一个窗口完成。
 
@@ -12,32 +12,30 @@
 
 边看视频边读字幕，右侧随时切换播放列表、字幕和导读。示例视频画面：热爱干饭饭 / 哔哩哔哩。
 
-## 最新源码进展 · 2026-10-22
+## 候选版：1.2.0-rc.11
 
-`main` 已加入界面优化：小窗口下字幕避让播放控件，侧栏标签保持单行；设置页更清楚地展示登录状态，听悟“检查连接”提供独立按钮；模型和推理档位在小窗口中完整显示。侧栏支持方向键切换，操作按钮或设置时不会误触播放快捷键。
+**这是供用户试用的候选版，并非稳定版。** 本版新增可折叠思维导图：在导读里切换“正文 / 思维导图”，展开关心的话题，点击节点或时间戳回到对应视频。导图从已有导读在本地生成，不额外调用模型。
 
-本轮为源码更新，下载页安装包仍为 rc.10，尚未包含这些界面优化。播放器的模型选择、账号登录资料及媒体文件保持原有规则。
+同时改善小窗口字幕与播放控件的避让、侧栏标签、键盘操作和连接状态提示，让模型与推理档位完整显示，并为听悟提供清楚的“检查连接”按钮。中英文界面、ChatGPT 网页与 DeepSeek API 继续包含在同一安装包中。
 
-## 候选版：1.2.0-rc.10
+本轮通过 22 个精选离线测试文件、类型检查与构建，以及隔离真实 Electron 中的 24 项交互检查；安装版与便携版的归档内容及隔离启动检查通过。依赖审计高危和严重项为零，开发期打包依赖仍有 8 项中危记录。真实账号、云端新任务、真实覆盖安装、异机和 GitHub 增量升级未在本轮重验。详见 [rc.11 版本说明](./docs/RELEASE-1.2.0-rc.11.md)。
 
-**这是供用户试用的候选版，并非稳定版。** rc.10 修复 Cookie 导入回滚、多行导读任务漏写和新对话回答取回问题；提供文件、剪贴板和粘贴 JSON 三种导入方式，突出登录与连接按钮。模型与推理档位分别选择，支持实际网页中的 Sol Pro 和 Astra Pro；字幕列表在空档和暂停时继续高亮当前位置。
-
-本版通过 25 个离线测试文件、类型检查与构建、19 项真实 Electron 播放检查和 15 项真实 Edge 合成 Cookie 协议检查。本机安装升级保留 4 份设置、播放与登录数据文件；实际账号用 **Sol · 中** 完整生成并取回带时间戳的短合成文本导读。两种 Pro 仅验证菜单及切换；长字幕或附件上传、Pro 等其他档位生成、听悟新任务、其他机器及 GitHub 增量更新仍未验收。详见 [rc.10 版本说明](./docs/RELEASE-1.2.0-rc.10.md)。
-
-请在 [v1.2.0-rc.10 下载页](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10) 的 **Assets** 中选择文件：
+请在 [v1.2.0-rc.11 下载页](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.11) 的 **Assets** 中选择文件：
 
 | 文件 | 用途 |
 |---|---|
-| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe` | Windows x64 当前用户安装程序 |
-| `Zhimu-Player-1.2.0-rc.10-Portable-x64.exe` | Windows x64 便携程序 |
-| `Zhimu-Player-1.2.0-rc.10-Source.zip` | 清洁源码包，附文件清单 |
-| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe.blockmap`、`latest.yml` | 安装版更新器使用的附件，无需手动打开 |
+| `Zhimu-Player-1.2.0-rc.11-Setup-x64.exe` | Windows x64 当前用户安装程序 |
+| `Zhimu-Player-1.2.0-rc.11-Portable-x64.exe` | Windows x64 便携程序 |
+| `Zhimu-Player-1.2.0-rc.11-Source.zip` | 清洁源码包，附文件清单 |
+| `Zhimu-Player-1.2.0-rc.11-Setup-x64.exe.blockmap`、`latest.yml` | 安装版更新器使用的附件，无需手动打开 |
 
-项目原名为 AI Video Player，现为「知幕 Zhimu Player」，延续已有功能和数据格式。[rc.8 说明](./docs/RELEASE-1.2.0-rc.8.md) 保留为历史记录。当前构建未签名，Windows 可能显示发布者未知；请核对下载来源。使用中发现问题，可在 [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) 提供版本、复现步骤和错误文字，不要上传账号信息、Cookie、API Key 或私人视频。
+已有安装版请先关闭播放器，再将 Setup 安装到原目录。内部数据标识保持兼容；便携版不会迁移账号。项目原名为 AI Video Player，现为「知幕 Zhimu Player」。[rc.10 说明](./docs/RELEASE-1.2.0-rc.10.md) 与 [rc.8 说明](./docs/RELEASE-1.2.0-rc.8.md) 保留历史验收记录。
+
+当前构建未签名，Windows 可能显示发布者未知，请核对官方发布地址和版本。发现问题可在 [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) 提供版本、复现步骤和错误文字，不要上传账号信息、Cookie、API Key 或私人视频。
 
 ## 安装后怎么用
 
-以下说明适用于 rc.10 候选版。
+以下说明适用于 rc.11 候选版。
 
 ![中文首次引导：选择 ChatGPT 网页或 DeepSeek API，并可切换界面语言](./assets/screenshots/onboarding-zh-CN.png)
 
@@ -65,7 +63,7 @@
 
 网页方案无需安装或登录 Codex。内置网页模型预设仅供选择，不能证明当前账号可用；刷新列表后仍保留原选择，每次生成前核对模型和推理档位。有效的已有配置继续保留，只有选项缺失或无法确认时才提示处理。网络错误、超时或人机验证会显示具体原因及“暂时无法确认”状态，保留上次已确认记录，不直接判为掉线或清除登录态。
 
-本轮实际网页已核对 **Sol：即时／中／高／极高／Pro**，以及 **Astra：Pro**。列表以当前账号实际菜单为准；“最新”下没有模型家族标识的其他档位不会被推断为 Astra。
+rc.10 验收时已在实际网页核对 **Sol：即时／中／高／极高／Pro**，以及 **Astra：Pro**。列表以当前账号实际菜单为准；“最新”下没有模型家族标识的其他档位不会被推断为 Astra。
 
 Cookie 导入仅在用户主动操作时读取文件、剪贴板或当次粘贴的 JSON，接受 JSON 数组或 `cookies` 列表，最多 2 MiB、2000 条；只接收 `chatgpt.com` 及其子域的有效 Cookie，跳过无关、过期或不合法条目。导入不会复制整个日常浏览器配置，也不回显文件或剪贴板正文；粘贴框在提交、关闭或切换来源后清空，内容不写入设置。导入会检查连接，但导入数量不等于认证成功；遇到网页安全验证须由用户完成。普通专用窗口登录始终保留，详见 [登录与故障处理](./docs/LOGIN-AND-TROUBLESHOOTING.md)。
 
@@ -78,6 +76,7 @@ Cookie 导入仅在用户主动操作时读取文件、剪贴板或当次粘贴�
 - 播放位置、倍速、观看状态和字幕样式自动恢复。
 - 点击字幕、点击或拖动进度条可以跳转；音量条按播放区域宽度适配。鼠标位于视频、音量按钮或音量条时可滚轮调音量，限制在 0–100%。
 - 同名 SRT 自动发现；字幕可浏览、跳转和修订，保留原字幕。
+- 导读可切换为可折叠思维导图，逐支或全部展开、折叠，并按已保存的对应关系点击节点或时间戳跳转。
 - Markdown 导读支持多个版本、就地编辑与跨 Part 时间戳跳转。新导读记录 Part 对应的视频文件名，调整播放列表顺序后仍按该对应关系跳转。
 - `Ctrl+F` 搜索全部 Part 字幕和当前导读。
 
@@ -114,7 +113,7 @@ npm run build
 
 网页流程会随服务页面、风控和账号权益变化；听悟网页接口同样需要持续适配。离线测试和成功构建不等于真实账号、长视频或新机器已验收。每次对外发布应完成 [发布验收清单](./docs/RELEASE-CHECKLIST.md)，并标明实际测试范围。当前发行不含代码签名，Windows 可能显示发布者未知。
 
-AI Video Player 旧名时期的历史记录：[1.1.2 模型自动发现](./docs/VALIDATION-1.1.2.md)、[1.1.0 语言适配与 Astra Pro](./docs/VALIDATION-1.1.0.md)、[1.0.0](./docs/VALIDATION-2026-09-14.md)。这些记录及 rc.8 的验证保留原文，不代表 rc.10 已通过同一检查。本轮真实 ChatGPT 证据仅覆盖实际账号连接、菜单切换及 Sol 中档的短合成文本生成；长字幕或附件上传、其他模型生成、DeepSeek、听悟、跨机器及增量更新均未据此验收。详见 [rc.10 验证范围](./docs/RELEASE-1.2.0-rc.10.md)。
+AI Video Player 旧名时期的历史记录：[1.1.2 模型自动发现](./docs/VALIDATION-1.1.2.md)、[1.1.0 语言适配与 Astra Pro](./docs/VALIDATION-1.1.0.md)、[1.0.0](./docs/VALIDATION-2026-09-14.md)。这些记录及 rc.8 的验证保留原文，不代表 rc.10 已通过同一检查。rc.10 的真实 ChatGPT 证据仅覆盖实际账号连接、菜单切换及 Sol 中档的短合成文本生成；长字幕或附件上传、其他模型生成、DeepSeek、听悟、跨机器及增量更新均未据此验收。详见 [rc.10 验证范围](./docs/RELEASE-1.2.0-rc.10.md)。
 
 ## 许可与署名
 

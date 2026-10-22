@@ -2,7 +2,7 @@
 
 [简体中文](./README.md) · [English](./README.en.md)
 
-[GitHub repository](https://github.com/OJY-lawyer/zhimu-player) · [Download rc.10](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10) · [Report an issue](https://github.com/OJY-lawyer/zhimu-player/issues)
+[GitHub repository](https://github.com/OJY-lawyer/zhimu-player) · [Download rc.11](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.11) · [Report an issue](https://github.com/OJY-lawyer/zhimu-player/issues)
 
 A Windows desktop workspace for video reading with AI: watch long recordings, browse subtitles and create timestamped reading guides. Open one video or a folder of lecture, livestream or course recordings and navigate them in one window.
 
@@ -12,32 +12,30 @@ One application includes both **ChatGPT web** (the default) and **DeepSeek API**
 
 Watch with subtitles and switch the right panel between the playlist, subtitles and reading guide. Example video: 热爱干饭饭 on bilibili. The interface also supports English, as shown below.
 
-## Latest source changes · 2026-10-22
+## Release candidate: 1.2.0-rc.11
 
-`main` includes interface refinements: captions clear playback controls in compact windows, sidebar labels stay on one line, and connection states are easier to read. Tingwu has a separate **Check connection** button, and model and reasoning selectors remain fully visible in compact Settings. Arrow keys switch sidebar tabs, while buttons and Settings no longer trigger background playback shortcuts.
+**This is a release candidate to try, not a stable release.** Guides now include a collapsible mind map. Switch between **Text / Mind map**, expand a topic, and click a node or timestamp to return to its video. The map is generated locally from the existing guide without another model request.
 
-This is a source update. The downloadable installers remain rc.10 and do not yet include these refinements. Model choices, sign-in data and media retain their existing behavior.
+This release also improves captions around playback controls, compact sidebar labels, keyboard behavior and connection states. Model and reasoning selectors remain visible in compact Settings, and Tingwu has a separate **Check connection** button. English and Chinese, ChatGPT web and DeepSeek API remain in one application.
 
-## Release candidate: 1.2.0-rc.10
+Twenty-two selected offline test files, type checking and the build passed, along with 24 interaction checks in isolated real Electron. Installer and portable archive checks and isolated startup checks passed. The dependency audit has no high or critical findings; eight moderate findings remain in development-time packaging dependencies. Real accounts, new cloud tasks, installation over a real user profile, other machines and GitHub differential upgrades were not re-tested. See the [rc.11 release notes](./docs/RELEASE-1.2.0-rc.11.md).
 
-**This is a release candidate for users to try, not a stable release.** rc.10 fixes Cookie import rollback, incomplete multiline prompts and response retrieval in new chats. Import cookies from a file, the clipboard or pasted JSON using the visible connection buttons. Model and reasoning choices are separate, including Sol Pro and Astra Pro when available in the website menu. Sidebar subtitles stay highlighted through gaps and pauses.
-
-This release passed 25 offline test files, type checks and the build, 19 real Electron playback checks and 15 synthetic Cookie protocol checks in real Edge. A local installation upgrade preserved four settings, playback and sign-in files. A real account generated and retrieved a complete timestamped guide from **short synthetic text using Sol · Medium**. Both Pro choices were checked in the menu and selected, but were not used to generate. Long transcripts or attachments, generation with Pro or other untested levels, new Tingwu jobs, other machines and GitHub differential updates remain unverified. See the [rc.10 release notes](./docs/RELEASE-1.2.0-rc.10.md).
-
-Choose a file under **Assets** on the [v1.2.0-rc.10 download page](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.10):
+Choose a file under **Assets** on the [v1.2.0-rc.11 download page](https://github.com/OJY-lawyer/zhimu-player/releases/tag/v1.2.0-rc.11):
 
 | File | Purpose |
 |---|---|
-| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe` | Windows x64 installer for the current user |
-| `Zhimu-Player-1.2.0-rc.10-Portable-x64.exe` | Windows x64 portable application |
-| `Zhimu-Player-1.2.0-rc.10-Source.zip` | Clean source archive with a file manifest |
-| `Zhimu-Player-1.2.0-rc.10-Setup-x64.exe.blockmap`, `latest.yml` | Installed-edition update assets; no need to open these manually |
+| `Zhimu-Player-1.2.0-rc.11-Setup-x64.exe` | Windows x64 installer for the current user |
+| `Zhimu-Player-1.2.0-rc.11-Portable-x64.exe` | Windows x64 portable application |
+| `Zhimu-Player-1.2.0-rc.11-Source.zip` | Clean source archive with a file manifest |
+| `Zhimu-Player-1.2.0-rc.11-Setup-x64.exe.blockmap`, `latest.yml` | Update assets for the installed edition; no need to open these manually |
 
-Previously named AI Video Player, **Zhimu Player · 知幕** continues its existing features and data formats. The [rc.8 notes](./docs/RELEASE-1.2.0-rc.8.md) remain a historical record. These builds are unsigned, so Windows may show an unknown publisher; check the download source. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with the version, reproduction steps and error text. Do not include account details, cookies, API keys or private media.
+Close the player before installing into its existing directory. Internal data identifiers remain compatible; a portable application does not transfer accounts. Previously named AI Video Player, Zhimu Player continues its existing data formats. The [rc.10 notes](./docs/RELEASE-1.2.0-rc.10.md) and [rc.8 notes](./docs/RELEASE-1.2.0-rc.8.md) remain historical records.
+
+Current builds are unsigned, so Windows may show an unknown publisher. Check the official release source and version. Report problems through [Issues](https://github.com/OJY-lawyer/zhimu-player/issues) with reproduction steps and error text; do not include account data, cookies, API keys or private media.
 
 ## Install and get started
 
-The instructions below apply to the rc.10 release candidate.
+The instructions below apply to the rc.11 release candidate.
 
 ![English first-run setup with ChatGPT web, DeepSeek API and an interface language switch](./assets/screenshots/onboarding-en.png)
 

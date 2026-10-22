@@ -1,0 +1,104 @@
+.guide-view-switch {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-view-switch button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.guide-view-switch button[aria-selected="true"] {
+  border-color: rgba(201, 111, 74, .4);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.guide-view-switch button:hover { background: var(--panel-soft); }
+.guide-mind-map { container-type: inline-size; min-height: 100%; }
+.guide-map-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; padding: 10px 16px 2px; }
+.guide-map-actions button { min-height: 30px; font-size: 13px; }
+.guide-map-canvas { padding: 16px 16px 36px; overflow: auto; }
+.guide-map-root {
+  display: inline-block;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(201, 111, 74, .5);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.guide-map-tree, .guide-map-children { list-style: none; margin: 0; padding: 0 0 0 18px; }
+.guide-map-tree { margin-left: 16px; padding-top: 8px; }
+.guide-map-branch { position: relative; padding: 8px 0 0 16px; }
+.guide-map-branch::before {
+  position: absolute;
+  content: '';
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 29px;
+  border-left: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  border-bottom-left-radius: 5px;
+}
+.guide-map-branch:not(:last-child)::after { position: absolute; content: ''; left: 0; top: 29px; bottom: 0; border-left: 1px solid var(--line-strong); }
+.guide-map-node {
+  display: flex;
+  align-items: flex-start;
+  min-width: 140px;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel-raised);
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.guide-map-node-heading { background: var(--panel-soft); color: var(--text); }
+.guide-map-node-heading .guide-map-node-label, .guide-map-node-heading .guide-map-node-link { font-weight: 600; }
+.guide-map-node-copy { min-width: 0; flex: 1; }
+.guide-map-node-label, .guide-map-node-link { display: block; white-space: pre-line; overflow-wrap: anywhere; user-select: text; }
+.guide-map-node-link { width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.guide-map-node-link:hover { color: var(--accent-bright); }
+.guide-map-toggle { display: grid; flex: 0 0 26px; place-items: center; width: 26px; height: 27px; margin: -2px 0 -2px -4px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-soft); cursor: pointer; }
+.guide-map-toggle:hover { background: var(--accent-soft); color: var(--text); }
+.guide-map-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.guide-map-timestamps { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.guide-map-timestamps .timestamp-button { margin: 0; min-height: 26px; font-size: 12px; }
+.guide-map-timestamps .timestamp-button:disabled { opacity: 1; color: var(--text-muted); border-color: var(--line); background: transparent; cursor: default; }
+.guide-map-hidden-count { display: block; margin-top: 5px; color: var(--text-muted); font-size: 12px; }
+.guide-map-children[hidden] { display: none; }
+.guide-map-actions button:disabled { color: var(--text-muted); cursor: default; }
+.guide-view-switch button:focus-visible, .guide-mind-map button:focus-visible, .guide-map-canvas:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
+
+@container (min-width: 560px) {
+  .guide-map-canvas { display: flex; align-items: flex-start; }
+  .guide-map-root { flex: 0 0 132px; margin-top: 8px; }
+  .guide-map-tree { min-width: 0; flex: 1; margin: 0; padding-top: 0; padding-left: 20px; }
+  .guide-map-tree > .guide-map-branch::before { width: 20px; left: -4px; }
+  .guide-map-tree > .guide-map-branch:not(:last-child)::after { left: -4px; }
+}
+
+@container (max-width: 340px) {
+  .guide-map-canvas { padding-right: 10px; padding-left: 10px; }
+  .guide-map-tree { margin-left: 6px; padding-left: 8px; }
+  .guide-map-children { padding-left: 7px; }
+  .guide-map-branch { padding-left: 10px; }
+  .guide-map-branch::before { width: 10px; }
+  .guide-map-node { padding: 8px; font-size: 13px; }
+}

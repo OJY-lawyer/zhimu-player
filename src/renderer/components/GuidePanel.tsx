@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { GuideVersion } from '../hooks/useGuideLibrary'
 import type { ActivePlaylist } from '../playerTypes'
 import { buildGuideNavigation } from '../../shared/guideManifest'
 import { Icon } from './Icons'
 import { t, translateMessage } from '../i18n'
+import { GuideMindMap } from './GuideMindMap'
+import { parseGuideMindMap } from '../../shared/guideMindMap'
 
 interface GuidePanelProps {
   versions: GuideVersion[]
@@ -120,6 +122,8 @@ export function GuidePanel({
   onNavigate,
 }: GuidePanelProps) {
   const [isEditing, setIsEditing] = useState(false)
+  const [view, setView] = useState<'document' | 'mindmap'>('document')
+  const viewId = useId()
   const canGenerate = missingSubtitleNames.length === 0
   const usesChatGpt = providerLabel.startsWith('ChatGPT')
   const generateLabel = usesChatGpt ? t('用 ChatGPT 生成', 'Generate with ChatGPT') : t('用 API 生成', 'Generate with API')
@@ -128,6 +132,7 @@ export function GuidePanel({
     () => buildGuideNavigation(content, filenameKey ? filenameKey.split('\0') : []),
     [content, filenameKey],
   )
+  const hasGuide = useMemo(() => parseGuideMindMap(navigation.body).length > 0, [navigation.body])
   const missingSummary = missingSubtitleNames.length > 3
     ? t(`${missingSubtitleNames.slice(0, 3).join('、')} 等 ${missingSubtitleNames.length} 个视频`, `${missingSubtitleNames.slice(0, 3).join(', ')} and ${missingSubtitleNames.length - 3} more`)
     : missingSubtitleNames.join(t('、', ', '))
@@ -178,9 +183,31 @@ export function GuidePanel({
               ))}
             </select>
           </label>
-          <button className="text-button" type="button" onClick={() => setIsEditing((value) => !value)}>
+          <button className="text-button" type="button" onClick={() => { setView('document'); setIsEditing((value) => !value) }}>
             {isEditing ? t('完成编辑', 'Done editing') : t('编辑', 'Edit')}
           </button>
+        </div>
+      )}
+
+      {hasGuide && !isLoading && (
+        <div className="guide-view-switch" role="tablist" aria-label={t('导读视图', 'Guide view')}>
+          {(['document', 'mindmap'] as const).map(mode => (
+            <button key={mode} type="button" role="tab" id={`${viewId}-${mode}`}
+              aria-selected={view === mode} aria-controls={`${viewId}-content`} tabIndex={view === mode ? 0 : -1}
+              onClick={() => { setView(mode); if (mode === 'mindmap') setIsEditing(false) }}
+              onKeyDown={event => {
+                if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  const next = event.key === 'Home' ? 'document' : event.key === 'End' ? 'mindmap' : view === 'document' ? 'mindmap' : 'document'
+                  setView(next)
+                  if (next === 'mindmap') setIsEditing(false)
+                  document.getElementById(`${viewId}-${next}`)?.focus()
+                }
+              }}>
+              {mode === 'document' ? t('正文', 'Text') : t('思维导图', 'Mind map')}
+            </button>
+          ))}
         </div>
       )}
 
@@ -207,10 +234,11 @@ export function GuidePanel({
         </div>
       )}
 
-      <div className="guide-content">
+      <div className="guide-content" id={`${viewId}-content`} role={hasGuide ? 'tabpanel' : undefined}
+        aria-labelledby={hasGuide ? `${viewId}-${view}` : undefined}>
         {isLoading ? (
           <div className="panel-empty"><span className="loading-ring" /><strong>{t('正在读取导读', 'Loading guide')}</strong></div>
-        ) : content ? (
+        ) : hasGuide || isEditing ? (
           isEditing ? (
             <textarea
               className="guide-editor"
@@ -219,6 +247,8 @@ export function GuidePanel({
               spellCheck={false}
               onChange={(event) => onContentChange(event.target.value)}
             />
+          ) : view === 'mindmap' ? (
+            <GuideMindMap key={activeVersion?.path || 'guide'} content={navigation.body} onNavigate={onNavigate} partMap={navigation.partMap} />
           ) : (
             <GuideDocument content={navigation.body} onNavigate={onNavigate} partMap={navigation.partMap} />
           )
