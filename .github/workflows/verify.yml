@@ -22,7 +22,8 @@ jobs:
       - run: npm run build:app
       - run: npm run licenses
       - run: npm run public:check
-      - run: npm audit --audit-level=high
+      - name: Audit dependencies using the current registry API
+        run: npm exec --yes --package=npm@12.2.1 -- npm audit --audit-level=high
       - run: npm run public:export
       - uses: actions/upload-artifact@v4
         with:
